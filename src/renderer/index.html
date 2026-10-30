@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>Flash Gamer</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img class="logo" src="/assets/icon.png" alt="Flash Gamer">
+      <div class="brand-text">
+        <h1>Flash Gamer</h1>
+        <p>Flash 小游戏离线馆 · 只运行游戏本体，不加载网页广告</p>
+      </div>
+    </div>
+    <div class="addbar">
+      <input id="url" type="text" placeholder="粘贴 4399 / 7k7k 游戏页链接" spellcheck="false">
+      <button id="btnParse" class="primary">解析</button>
+      <button id="btnImport" class="ghost">导入 SWF</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <div class="side-head">
+        <span>我的游戏库</span>
+        <span id="count" class="pill">0</span>
+      </div>
+      <div id="list" class="list"></div>
+      <div class="side-foot">
+        <div id="cacheLine" class="muted">缓存 0 B</div>
+      </div>
+    </aside>
+
+    <section class="content">
+      <div class="stage-head">
+        <div class="stage-title">
+          <h2 id="gameTitle">还没有选择游戏</h2>
+          <p id="gameMeta" class="muted">解析一个链接，或者导入手头的 .swf</p>
+        </div>
+        <div class="actions">
+          <button id="btnPlay" class="primary" disabled>开始游戏</button>
+          <button id="btnWindow" class="ghost" disabled>独立窗口</button>
+          <button id="btnReload" class="ghost" disabled>重载</button>
+          <button id="btnFolder" class="ghost" disabled>文件夹</button>
+          <button id="btnDelete" class="danger" disabled>删除</button>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="placeholder" id="placeholder">
+          <div class="ph-badge">无广告 · 无捆绑 · 离线可玩</div>
+          <p>左侧选择游戏，或在上方粘贴游戏页链接</p>
+        </div>
+        <iframe id="frame" title="game" allow="fullscreen; autoplay; gamepad"></iframe>
+      </div>
+    </section>
+  </main>
+
+  <footer class="statusbar">
+    <span id="status">就绪</span>
+    <span id="cachedInfo" class="muted"></span>
+  </footer>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-card">
+      <h3>选择要保存的 SWF</h3>
+      <p class="muted" id="modalHint">页面里检测到多个 Flash 文件，通常体积最大的是游戏本体，其他可能是加载器或前置广告。</p>
+      <div id="candList" class="cand-list"></div>
+      <div class="modal-actions">
+        <button id="btnCancel" class="ghost">取消</button>
+        <button id="btnConfirm" class="primary" disabled>添加</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="/assets/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>Flash Gamer</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0b0c0f; overflow: hidden; }
+    #stage { position: absolute; inset: 0; }
+    ruffle-player { display: block; width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="stage"></div>
+  <script id="boot" type="application/json">__BOOT__</script>
+  <script>
+    window.RufflePlayer = window.RufflePlayer || {};
+    var __apDebugLog = false;
+    try { __apDebugLog = localStorage.getItem('apDebug') === '1'; } catch (e) {}
+    window.RufflePlayer.config = {
+      publicPath: '/vendor/ruffle/',
+      autoplay: 'on',
+      unmuteOverlay: 'visible',
+      letterbox: 'on',
+      scale: 'showAll',
+      quality: 'high',
+      warnOnUnsupportedContent: false,
+      logLevel: __apDebugLog ? 'info' : 'error',
+      openUrlMode: 'deny',
+      allowNetworking: 'all',
+      allowScriptAccess: true,
+      upgradeToHttps: false,
+      allowFullscreen: true,
+      contextMenu: 'on',
+      backgroundColor: '#000000',
+      preloader: true,
+      splashScreen: false
+    };
+  </script>
+  <script src="/vendor/ruffle/ruffle.js"></script>
+  <script>
+    window.__apErrors = [];
+    window.addEventListener('error', function (e) { window.__apErrors.push(String(e.message || e)); });
+    if (__apDebugLog) {
+      (function () {
+        var rg = Reflect.get;
+        Reflect.get = function (t, k, r) {
+          try { if (t === window && typeof k === 'string' && /^(4399|ap_|calljs|jsCall)/i.test(k)) console.log('[EIGET]', k); } catch (e) {}
+          return rg.apply(this, arguments);
+        };
+      })();
+    }
+    window.addEventListener('unhandledrejection', function (e) { window.__apErrors.push('reject: ' + String(e.reason)); });
+    (function () {
+      var boot = JSON.parse(document.getElementById('boot').textContent);
+      if (boot.title) document.title = boot.title + ' — Flash Gamer';
+      var post = function (m) {
+        try { parent.postMessage(Object.assign({ __ap: 1 }, m), '*'); } catch (e) {}
+      };
+      try {
+        var ruffle = window.RufflePlayer.newest();
+        var player = ruffle.createPlayer();
+        player.style.width = '100%';
+        player.style.height = '100%';
+        document.getElementById('stage').appendChild(player);
+
+        player.addEventListener('loadedmetadata', function () {
+          var md = player.metadata || {};
+          post({
+            type: 'meta',
+            meta: {
+              width: md.width, height: md.height,
+              frameRate: md.frameRate, swfVersion: md.swfVersion,
+              numFrames: md.numFrames
+            }
+          });
+        });
+        player.addEventListener('error', function (e) {
+          post({ type: 'error', message: String((e && e.message) || e) });
+        });
+        player.addEventListener('fscommand', function (e) {
+          post({ type: 'fscommand', command: e.command, args: e.args });
+        });
+
+        player.load({
+          url: boot.swfUrl,
+          base: boot.baseUrl,
+          parameters: boot.parameters || {},
+          allowScriptAccess: true,
+          autoplay: 'on',
+          unmuteOverlay: 'visible'
+        });
+        post({ type: 'ready' });
+      } catch (e) {
+        post({ type: 'error', message: String(e) });
+      }
+    })();
+  </script>
+</body>
+</html>
