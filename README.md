@@ -51,18 +51,31 @@ npm start
 ## 打包
 
 ```bash
-npm run dist -- --config.directories.output=release/FlashGamer-0.2.0
+npm run dist
 ```
 
-electron-builder 会生成单文件便携版 exe。
+标准情况下 electron-builder 会生成单文件便携版 exe。
 
-本仓库同时提供已经组装好的绿色版：
+如果 Windows 上出现 `EPERM/EBUSY ... default_app.asar`（解压 Electron 后改名被 Defender/索引服务短暂占用），改用已解压 Electron 目录，让它走复制而不是改名：
 
-- `release/AppProfessor/`：v0.1，原样保留。
-- `release/AppProfessor-0.1.0-portable.zip`：v0.1 压缩包。
+```bash
+ELECTRON_ZIP=$(ls "$LOCALAPPDATA"/electron/Cache/*/electron-v45.1.0-win32-x64.zip | head -1)
+"$LOCALAPPDATA/electron-builder/Cache/7zip@1.0.0/7zip-win-x64-1nrf7/bin/7za.exe" x -y "$ELECTRON_ZIP" -o release/electron-dist-45.1.0
+
+npx electron-builder --dir --win --x64 \
+  --config.directories.output=release/build-0.2.0-dir \
+  --config.electronDist=release/electron-dist-45.1.0
+```
+
+`--dir` 产出 `win-unpacked/` 绿色目录，再重命名并压缩即可。完整命令与两个版本的实测记录见 [`docs/FlashGamer-实现复现.md`](docs/FlashGamer-实现复现.md)。
+
+本仓库同时提供已经组装好并实测过的绿色版：
+
+- `release/AppProfessor/`、`release/AppProfessor-0.1.0-portable.zip`：v0.1，原样保留。
 - `release/FlashGamer-0.2.0/`：v0.2 解压即用目录，双击 `Flash Gamer.exe` 运行。
 - `release/FlashGamer-0.2.0-portable.zip`：v0.2 压缩包。
 - `release/FlashGamer-0.3.0-dev/`：v0.3（dev 分支，带网页浏览）。
+- `release/FlashGamer-0.3.0-dev-portable.zip`：v0.3 压缩包。
 
 ## 数据位置
 
