@@ -383,13 +383,13 @@ AP_SMOKE_WAIT=12000 AP_SMOKE_CLICK=1 AP_SMOKE_OFFSCREEN=1 \
 | 40779 解析（源码） | v0.2/v0.3 | 全流程 smoke | 通过：候选 1 个，`main.swf` 3,474,287 B，`via=wrapper` |
 | 40779 游玩（源码） | v0.2/v0.3 | `AP_SMOKE_CLICK=1` 截图 | 通过：进入「3D极速飙车」标题页 |
 | 40779 解析（打包 exe） | v0.2 | `release/FlashGamer-0.2.0/Flash Gamer.exe` | 通过：同一候选、同一标题，写入 3,474,938 B 缓存 |
-| 40779 游玩（打包 exe） | v0.2/v0.3 | 打包版 replay + 截图 | 通过：640×480、15 fps；`.tmp-packed02-data/smoke-replay.png`、`.tmp-packed03-data/smoke-replay.png` |
+| 40779 游玩（打包 exe） | v0.2/v0.3 | 打包版 replay + 截图 | 通过：640×480、15 fps；`docs/FlashGamer-v0.2-40779.png`、`docs/FlashGamer-v0.3-40779.png` |
 | 205551 解析（打包 exe） | v0.2 | 打包版 full smoke | 通过：`main.swf` 69,072,554 B（65.9 MB），800×600、30 fps |
 | 205551 allowScriptAccess 报错 | v0.2/v0.3 | 回放 smoke + Ruffle 日志 | 通过：报错消失 |
 | 205551 进入游戏 | — | 打包版回放 | 未通过：Ruffle stub `Loader.load() addChild at the correct time`，黑屏 |
 | 独立游戏窗口（打包 exe） | v0.2/v0.3 | `AP_SMOKE_WINDOW=1` | 通过：标题「3D极速飙车 — Flash Gamer」、URL `/play/:id`、Ruffle 元数据 640×480 |
 | 后台运行（实测） | v0.3（打包 exe） | CDP 在游戏页计 rAF，浏览器窗口置前 5 秒 | 通过：rAF 392 → 859（+467 帧），游戏窗口 `hasFocus()=false`，画面循环未停 |
-| 浏览器窗口（打包 exe） | v0.3 | `AP_SMOKE_BROWSER=1` + 截图 | 通过：4399 页面正常渲染，登录弹窗正常（`.tmp-packed03-data/smoke-browser.png`） |
+| 浏览器窗口（打包 exe） | v0.3 | `AP_SMOKE_BROWSER=1` + 截图 | 通过：4399 页面正常渲染，登录弹窗正常（`docs/FlashGamer-v0.3-browser-login.png`） |
 | 浏览器解析入库（打包 exe） | v0.3 | `AP_SMOKE_BROWSER_PARSE=1` | 通过：提示「已加入游戏库：3D极速飙车（3.3 MB，共 1 个候选）」，library 条目 +1 |
 | 去重 | v0.2/v0.3 | 重复解析两次 | 通过：条目数不增 |
 | exe 图标与版本信息 | v0.2/v0.3 | `ExtractAssociatedIcon` + `VersionInfo` | 通过：`ProductName=Flash Gamer`，版本 0.2.0.0 / 0.3.0.0，图标为新 logo |
@@ -397,6 +397,18 @@ AP_SMOKE_WAIT=12000 AP_SMOKE_CLICK=1 AP_SMOKE_OFFSCREEN=1 \
 | v0.1 产物保留 | — | 目录与校验和检查 | 通过：`release/AppProfessor*` 未改动，zip sha256 未变 |
 
 > 说明：无桌面会话时 `capturePage()` 可能返回 `UnknownVizError` 或旧帧；`AP_SMOKE_OFFSCREEN=1` 是可靠的截图方式。
+
+截图证据：
+
+- 打包版 v0.2 运行 40779：`docs/FlashGamer-v0.2-40779.png`
+- 打包版 v0.3 运行 40779：`docs/FlashGamer-v0.3-40779.png`
+- 打包版 v0.3 浏览器与 4399 登录弹窗：`docs/FlashGamer-v0.3-browser-login.png`
+
+![v0.2 40779](FlashGamer-v0.2-40779.png)
+
+![v0.3 40779](FlashGamer-v0.3-40779.png)
+
+![v0.3 浏览器登录](FlashGamer-v0.3-browser-login.png)
 
 ---
 
