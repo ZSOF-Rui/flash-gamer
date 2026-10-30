@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>网页浏览 — Flash Gamer</title>
+  <style>
+    :root {
+      --bg: #f4f5f7;
+      --panel: #ffffff;
+      --line: #e2e5ec;
+      --line-strong: #cfd4de;
+      --text: #1d2330;
+      --muted: #6b7280;
+      --brand: #1a73e8;
+      --brand-strong: #155fc0;
+      --accent: #4c1d95;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.5 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    }
+    .top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      flex: none;
+    }
+    .nav { display: flex; gap: 6px; }
+    .icon-btn {
+      width: 40px; height: 44px;
+      border: 1px solid var(--line-strong);
+      background: var(--panel);
+      border-radius: var(--radius);
+      font-size: 17px;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .icon-btn:disabled { color: #b9bfca; cursor: default; }
+    .icon-btn:hover:not(:disabled) { background: #f7f8fa; }
+    #addr {
+      flex: 1;
+      height: 44px;
+      padding: 0 14px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      font: inherit;
+      background: #fbfcfe;
+      outline: none;
+    }
+    #addr:focus { border-color: var(--brand); background: #fff; }
+    .btn {
+      height: 44px;
+      padding: 0 18px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line-strong);
+      background: var(--panel);
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+    .btn.primary:hover { background: var(--brand-strong); }
+    .btn.accent { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn:disabled { opacity: .55; cursor: default; }
+    #status {
+      flex: none;
+      padding: 6px 14px;
+      font-size: 12px;
+      color: var(--muted);
+      background: #fbfcfe;
+      border-bottom: 1px solid var(--line);
+      min-height: 28px;
+    }
+    #view {
+      flex: 1;
+      width: 100%;
+      border: 0;
+      background: #fff;
+    }
+    #toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      max-width: 520px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      background: #1d2330;
+      color: #fff;
+      font-size: 13px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity .18s ease, transform .18s ease;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: none; }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="nav">
+      <button id="back" class="icon-btn" title="后退">←</button>
+      <button id="fwd" class="icon-btn" title="前进">→</button>
+      <button id="reload" class="icon-btn" title="刷新">↻</button>
+    </div>
+    <input id="addr" spellcheck="false" placeholder="输入网址，例如 https://www.4399.com">
+    <button id="go" class="btn">打开</button>
+    <button id="parse" class="btn accent">解析此页</button>
+  </header>
+  <div id="status">登录状态保存在本机；游戏请求会自动带上这里的 Cookie。</div>
+  <webview id="view" src="https://www.4399.com/" allowpopups></webview>
+  <div id="toast"></div>
+  <script src="/assets/browser.js"></script>
+</body>
+</html>
