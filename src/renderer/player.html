@@ -50,6 +50,18 @@
       })();
     }
     window.addEventListener('unhandledrejection', function (e) { window.__apErrors.push('reject: ' + String(e.reason)); });
+    // 4399 外壳会通过 ExternalInterface 调 setTimeout 克隆并替换 <object>/<embed> 来"修正"参数；
+    // Ruffle 的 <ruffle-player> 被克隆后不会再初始化，这里拦截该重载脚本。
+    (function () {
+      var nativeTimeout = window.setTimeout;
+      window.setTimeout = function (fn, ms) {
+        if (typeof fn === 'string' && fn.indexOf('fl_obj') !== -1 && fn.indexOf('cloneNode') !== -1) {
+          console.warn('[FlashGamer] blocked 4399 player reload');
+          return 0;
+        }
+        return nativeTimeout.apply(this, arguments);
+      };
+    })();
     (function () {
       var boot = JSON.parse(document.getElementById('boot').textContent);
       if (boot.title) document.title = boot.title + ' — Flash Gamer';
@@ -59,6 +71,20 @@
       try {
         var ruffle = window.RufflePlayer.newest();
         var player = ruffle.createPlayer();
+        player.id = 'flashgame';
+        player.setAttribute('name', 'flashgame');
+        player.setAttribute('type', 'application/x-shockwave-flash');
+        player.setAttribute('allowScriptAccess', 'always');
+        player.setAttribute('allowNetworking', 'all');
+        player.setAttribute('allowFullScreen', 'true');
+        // 4399 壳通过 ExternalInterface 找到播放器元素后，按 nodeName 区分 OBJECT/EMBED，
+        // 再用 getAttribute 读取 allowScriptAccess/allowNetworking 与期望值比对；不匹配就
+        // dispose 并克隆替换元素。把 <ruffle-player> 伪装成 EMBED 并补齐这些属性；id/name
+        // 用于让 ExternalInterface.objectID 找到元素（壳还会校验回调属性是否存在）。
+        try {
+          Object.defineProperty(player, 'nodeName', { get: function () { return 'EMBED'; }, configurable: true });
+          Object.defineProperty(player, 'tagName', { get: function () { return 'EMBED'; }, configurable: true });
+        } catch (e) {}
         player.style.width = '100%';
         player.style.height = '100%';
         document.getElementById('stage').appendChild(player);

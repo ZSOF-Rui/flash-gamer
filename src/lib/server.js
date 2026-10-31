@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const { ensureDir, sha1, mimeFor } = require('./util');
 const { UA } = require('./fetcher');
 const { isBlockedUrl } = require('./blocklist');
+const { extractInnerSwf } = require('./swf-embed');
 
 const HTML_CSP = [
   "default-src 'self'",
@@ -137,6 +138,36 @@ async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTempla
   const OFFLINE = process.env.AP_OFFLINE === '1';
 
   let activeGame = null;
+  const innerSwfJobs = new Map();
+  const innerSwfPath = (item) => path.join(lib.itemDir(item.id), 'play.swf');
+
+  const isMainSwfUrl = (item, targetUrl) => {
+    if (!item.originalUrl) return false;
+    try {
+      const target = new URL(targetUrl);
+      const original = new URL(item.originalUrl);
+      return target.origin === original.origin && target.pathname === original.pathname;
+    } catch { return false; }
+  };
+
+  const ensureInnerSwf = (item) => {
+    if (innerSwfJobs.has(item.id)) return innerSwfJobs.get(item.id);
+    const job = (async () => {
+      const play = innerSwfPath(item);
+      try {
+        if (fs.statSync(play).size > 1024 * 1024) return play;
+      } catch {}
+      let buf;
+      try { buf = fs.readFileSync(path.join(lib.itemDir(item.id), item.fileName || 'main.swf')); } catch { return null; }
+      const inner = extractInnerSwf(buf);
+      if (!inner) return null;
+      try { fs.writeFileSync(play, inner); } catch { return null; }
+      console.log(`[flashgamer] unwrapped embedded SWF: ${item.id} (${inner.length} B)`);
+      return play;
+    })();
+    innerSwfJobs.set(item.id, job);
+    return job;
+  };
 
   const resolveCookie = async (url, item) => {
     try {
@@ -169,6 +200,13 @@ async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTempla
   };
 
   const serveGameAsset = async (req, res, item, targetUrl) => {
+    if (isMainSwfUrl(item, targetUrl)) {
+      const play = innerSwfPath(item);
+      if (fs.existsSync(play)) {
+        res.setHeader('X-Ap-Inner', '1');
+        return serveFile(req, res, play, 'application/x-shockwave-flash');
+      }
+    }
     const key = sha1(targetUrl);
     const dir = lib.cacheDir(item.id);
     const bin = path.join(dir, key);
@@ -351,6 +389,10 @@ async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTempla
       try { rel = decodeURIComponent(fileMatch[2]); } catch { rel = fileMatch[2]; }
       const file = path.join(dir, rel);
       if (!file.startsWith(dir)) return send(res, 403, 'forbidden');
+      if (rel === (item.fileName || 'main.swf')) {
+        const play = innerSwfPath(item);
+        if (fs.existsSync(play)) return serveFile(req, res, play);
+      }
       if (!fs.existsSync(file)) return send(res, 404, 'not found');
       return serveFile(req, res, file);
     }
@@ -367,13 +409,14 @@ async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTempla
     if (playMatch) {
       const item = lib.get(playMatch[1]);
       if (!item) return send(res, 404, 'no game');
+      await ensureInnerSwf(item);
       activeGame = item;
       const boot = JSON.stringify(buildBoot(item)).replace(/</g, '\\u003c');
       const nonce = crypto.randomBytes(12).toString('base64');
       let html = fs.readFileSync(playerTemplate, 'utf8').replace('__BOOT__', boot);
       html = html.replace(/<script(?![^>]*\bsrc=)/g, `<script nonce="${nonce}"`);
       const csp = HTML_CSP.replace("script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob:",
-        `script-src 'self' 'wasm-unsafe-eval' blob: 'nonce-${nonce}'`);
+        `script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob: 'nonce-${nonce}'`);
       return send(res, 200, html, 'text/html; charset=utf-8', {
         'Content-Security-Policy': csp,
         'X-Content-Type-Options': 'nosniff'
@@ -415,12 +458,14 @@ async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTempla
   }
   if (!port) port = await listen(server, 0);
 
+  // 4399 外壳用 ExternalInterface 读取 location.hostname 决定是否连远程服务；
+  // 只有 hostname 为 localhost 才会跳过 start_remote()，故本地页面统一走 localhost。
   return {
     server,
     port,
     token,
-    url: `http://127.0.0.1:${port}/?t=${token}`,
-    origin: `http://127.0.0.1:${port}`,
+    url: `http://localhost:${port}/?t=${token}`,
+    origin: `http://localhost:${port}`,
     getActiveGame: () => activeGame,
     close: () => new Promise((r) => server.close(() => r()))
   };

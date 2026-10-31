@@ -611,7 +611,7 @@ if (!gotLock) {
     // Ruffle 用 fetch 取跨域素材，HTTPS 请求不经过本地代理，需要补 CORS 头
     session.defaultSession.webRequest.onHeadersReceived({ urls: ['*://*/*'] }, (details, callback) => {
       const headers = { ...(details.responseHeaders || {}) };
-      if (!/^http:\/\/127\.0\.0\.1/i.test(details.url) && isPlayerContext(details)) {
+      if (!/^http:\/\/(127\.0\.0\.1|localhost)/i.test(details.url) && isPlayerContext(details)) {
         headers['Access-Control-Allow-Origin'] = ['*'];
         headers['Access-Control-Allow-Headers'] = ['*'];
         headers['Access-Control-Allow-Methods'] = ['GET, POST, OPTIONS'];
