@@ -4,14 +4,25 @@ Flash 小游戏离线馆。把 4399 / 7k7k 的 Flash 游戏页面粘贴进来，
 
 只运行游戏文件，不加载网页广告；不安装 Adobe Flash Player，也不带任何捆绑软件。
 
+- 官网：<https://zsof-rui.github.io/flash-gamer/>
+- 下载：<https://github.com/ZSOF-Rui/flash-gamer/releases/latest>
+
 ## 版本
 
-| 版本 | 分支 | 内容 |
+| 版本 | 位置 | 内容 |
 | --- | --- | --- |
-| v0.1 | 归档于 `release/AppProfessor*` | App Professor 初始版，原样保留 |
-| v0.2 | `release/FlashGamer-0.2.0*` | 改名、新图标、独立游戏窗口、后台运行（历史版本） |
-| v0.3.0 | `main` | 无浏览器版；修复 4399 加壳游戏（抽出内嵌 SWF 顶播） |
-| v0.3.1-dev | `dev` | 在 v0.3.0 基础上加网页浏览与在线登录 |
+| v0.3.1 | `main` / Release | 浏览器 + 登录共享 + 加壳修复；NSIS 安装程序 + 免安装 zip |
+| v0.3.0 无浏览器版 | `lite` 分支、`release/FlashGamer-0.3.0*` | 只保留直接粘贴链接解析，产物原样归档 |
+| v0.2.0 | `release/FlashGamer-0.2.0*` | 改名、新图标、独立游戏窗口、后台运行（历史版本） |
+| v0.1.0 | `v0.1-app-professor` 分支、`release/AppProfessor*` | App Professor 初始版，原样保留 |
+
+## v0.3.1 更新
+
+- 在浏览器窗口里点 4399 游戏，不再弹出一个没有地址栏的小窗；链接会在当前网页视图里打开，地址栏随之更新，仍可继续点「解析此页」。
+- 输入框、地址栏支持鼠标右键：撤销、重做、剪切、复制、粘贴、全选。
+- 新增 NSIS 安装程序：可选安装目录，创建桌面与开始菜单快捷方式，带标准卸载程序。
+- 安装版把游戏库存到用户目录，卸载或升级不会删掉游戏；免安装版的数据跟着程序文件夹走。
+- 新增静态官网与 GitHub Pages 部署工作流。
 
 ## 用法
 
@@ -23,6 +34,21 @@ Flash 小游戏离线馆。把 4399 / 7k7k 的 Flash 游戏页面粘贴进来，
 也可以点「导入 SWF」或直接把 `.swf` 文件拖进窗口。
 
 「独立窗口」会把当前游戏开在单独的窗口里，主窗口继续浏览、解析别的游戏都不会打断它；游戏窗口使用独立的渲染进程且关闭后台限速。
+
+### 网页浏览
+
+主界面点「网页浏览」打开浏览器窗口，可以像普通浏览器一样访问 4399 / 7k7k、登录账号，再点「解析此页」把当前页面的游戏收入本地库。登录 Cookie 会共享给解析器和播放器。
+
+在网页里打开游戏链接（包括 `window.open` 弹窗）时，链接会在当前网页视图内跳转，不会另开无地址栏的小窗口。需要保留原页面时，先用游戏库或新开一个浏览器窗口。
+
+## 安装
+
+Windows 10 / 11 64 位。
+
+- **安装版** `FlashGamer-0.3.1-setup.exe`：助手式安装，可改安装路径；创建桌面和开始菜单快捷方式；卸载入口在「设置 → 应用」和开始菜单。数据在 `%APPDATA%\Flash Gamer\FlashGamerData`，卸载不删除。
+- **免安装版** `FlashGamer-0.3.1-portable.zip`：解压到任意文件夹，双击 `Flash Gamer.exe`。数据在 exe 同目录的 `FlashGamerData`，删文件夹即清空。
+
+安装包没有购买代码签名证书，Windows SmartScreen 可能提示“未知发布者”，可点“更多信息 → 仍要运行”。下载页提供 SHA-256 校验值。
 
 ## 广告与捆绑
 
@@ -53,36 +79,38 @@ npm start
 ## 打包
 
 ```bash
-npm run dist
+npm run dist:installer   # 只出安装程序
+npm run dist             # 安装程序 + 单文件便携 exe
 ```
 
-标准情况下 electron-builder 会生成单文件便携版 exe。
+NSIS 安装程序的配置在 `package.json` 的 `build.nsis` 中，`build/installer.nsh` 会在安装目录写入 `installed.marker`，程序据此把数据放到用户目录而不是安装目录。
 
-如果 Windows 上出现 `EPERM/EBUSY ... default_app.asar`（解压 Electron 后改名被 Defender/索引服务短暂占用），改用已解压 Electron 目录，让它走复制而不是改名：
+本机打包时可指定独立输出目录，避免上一次的 `win-unpacked` 被系统短暂占用：
 
 ```bash
-ELECTRON_ZIP=$(ls "$LOCALAPPDATA"/electron/Cache/*/electron-v45.1.0-win32-x64.zip | head -1)
-"$LOCALAPPDATA/electron-builder/Cache/7zip@1.0.0/7zip-win-x64-1nrf7/bin/7za.exe" x -y "$ELECTRON_ZIP" -o release/electron-dist-45.1.0
-
-npx electron-builder --dir --win --x64 \
-  --config.directories.output=release/build-0.3.0-dir \
-  --config.electronDist=release/electron-dist-45.1.0
+npx electron-builder --win nsis --x64 \
+  --config.directories.output=release/build-0.3.1-installer-v2
 ```
 
-`--dir` 产出 `win-unpacked/` 绿色目录，再重命名并压缩即可。完整命令与两个版本的实测记录见 [`docs/FlashGamer-实现复现.md`](docs/FlashGamer-实现复现.md)。
+免安装 zip 由打包产物的 `win-unpacked` 整理而来：
 
-本仓库同时提供已经组装好并实测过的绿色版：
+```bash
+mkdir -p .tmp-pack/FlashGamer-0.3.1
+cp -r release/build-0.3.1-installer-v2/win-unpacked/. .tmp-pack/FlashGamer-0.3.1/
+7za a -tzip -mx=5 release/FlashGamer-0.3.1-portable.zip .tmp-pack/FlashGamer-0.3.1
+```
 
-- `release/FlashGamer-0.3.0/`：v0.3.0 解压即用目录（无浏览器），双击 `Flash Gamer.exe` 运行。
-- `release/FlashGamer-0.3.0-portable.zip`：v0.3.0 压缩包。
-- `release/FlashGamer-0.3.1-dev/`：v0.3.1-dev 解压即用目录（带网页浏览）。
-- `release/FlashGamer-0.3.1-dev-portable.zip`：v0.3.1-dev 压缩包。
-- `release/AppProfessor/`、`release/AppProfessor-0.1.0-portable.zip`：v0.1，原样保留。
-- `release/FlashGamer-0.2.0*`、`release/FlashGamer-0.3.0-dev*`：历史版本，未覆盖。
+如果 Windows 上出现 `EPERM/EBUSY ... default_app.asar`，说明 Electron 解压后的改名被 Defender/索引服务占用，可改用已解压的 Electron 目录（`--config.electronDist=...`）。完整命令与实测记录见 [`docs/FlashGamer-实现复现.md`](docs/FlashGamer-实现复现.md)。
+
+## 官网
+
+`site/` 是纯静态站点（无构建步骤），推送到 `main` 后由 [`.github/workflows/pages.yml`](.github/workflows/pages.yml) 发布到 GitHub Pages。本地预览时用任意静态服务器指向 `site/` 即可。
 
 ## 数据位置
 
 - 开发模式：`data/`
-- 便携版：exe 同目录的 `FlashGamerData/`（首次运行会自动从旧的 `AppProfessorData/` 迁移游戏库）
+- 安装版：`%APPDATA%\Flash Gamer\FlashGamerData\`
+- 免安装版：exe 同目录的 `FlashGamerData/`；目录只读时退回用户目录
+- 首次运行会尝试从旧的 `AppProfessorData/` 迁移游戏库
 
-删除该目录即可清空游戏库与缓存。
+删除对应目录即可清空游戏库与缓存。

@@ -1,4 +1,4 @@
-# Flash Gamer 实现复现手册（v0.3.0 / v0.3.1-dev）
+# Flash Gamer 实现复现手册（v0.3.1）
 
 本文按“需求 → 结论 → 实现 → 复现命令 → 验证证据 → 限制”的顺序记录本项目的全部改动。  
 目标读者是拿到源码后想把每一处行为重新做出来、或想定位某个游戏为什么不能玩的人。
@@ -25,12 +25,13 @@
 ## 2. 版本与分支
 
 ```
-main    Flash Gamer v0.3.0（无浏览器，含 4399 加壳修复）
-dev     Flash Gamer v0.3.1-dev（浏览器 + 登录共享 + 同一加壳修复）
+main    Flash Gamer v0.3.1（浏览器 + 登录共享 + 加壳修复 + 安装程序 / 官网）
+dev     开发分支（v0.3.1 起与 main 同步，后续实验在此进行）
+lite    Flash Gamer v0.3.0（无浏览器，含 4399 加壳修复；旧 main 原样保留）
 v0.1.0  c773483  App Professor v0.1.0（只读归档）
 ```
 
-历史版本 v0.2.0（main 的 e2208c6）与 v0.3.0-dev（dev 的 ca0c608）的产物原样保留，不覆盖。
+历史版本 v0.2.0（原 main 的 e2208c6）与 v0.3.0-dev（dev 的 ca0c608）的产物原样保留，不覆盖。v0.3.0 无浏览器版从 `main` 移到 `lite` 分支，`main` 从 v0.3.1 起承载带浏览器、安装程序和官网的正式版。
 
 - v0.1 的源码快照取自 `release/AppProfessor/resources/app`，单独提交在 `v0.1-app-professor` 分支并打 `v0.1.0` 标签。
 - **v0.1 的任何运行产物都没有被覆盖**：
@@ -61,7 +62,7 @@ v0.1.0  c773483  App Professor v0.1.0（只读归档）
                                   └──────────────────────────────────────────────┘
 ```
 
-数据目录（便携版为 exe 同目录 `FlashGamerData/`）：
+数据目录（安装版为 `%APPDATA%\Flash Gamer\FlashGamerData/`，免安装版为 exe 同目录 `FlashGamerData/`）：
 
 ```
 FlashGamerData/
@@ -426,7 +427,93 @@ robocopy "release\build-0.3.1-dev-dir\win-unpacked" "release\FlashGamer-0.3.1-de
 7za t release/FlashGamer-0.3.1-dev-portable.zip
 ```
 
-> `package.json` 的 `npm run dist` 仍是标准单文件 portable 目标；在没有文件占用的机器上可直接用。本次交付采用绿色目录 + zip，避免依赖 NSIS 自解压层。
+以上命令对应 v0.3.0 / v0.3.1-dev 的绿色版产物，保留作历史记录。
+
+### 5.3.1 v0.3.1 安装程序与免安装 zip
+
+v0.3.1 起 `package.json` 同时配置 `nsis` 与 `portable`：
+
+```json
+"nsis": {
+  "oneClick": false,
+  "perMachine": false,
+  "allowElevation": true,
+  "allowToChangeInstallationDirectory": true,
+  "createDesktopShortcut": true,
+  "createStartMenuShortcut": true,
+  "shortcutName": "Flash Gamer",
+  "language": "2052",
+  "deleteAppDataOnUninstall": false,
+  "artifactName": "FlashGamer-${version}-setup.${ext}",
+  "include": "build/installer.nsh"
+}
+```
+
+`build/installer.nsh` 在安装完成后写入 `installed.marker`：
+
+```nsh
+!macro customInstall
+  FileOpen $9 "$INSTDIR\installed.marker" w
+  FileWrite $9 "installer"
+  FileClose $9
+!macroend
+```
+
+`src/main.js` 的 `resolveDataDir()` 据此区分两种运行方式：有标记 → `app.getPath('userData')/FlashGamerData`；无标记 → exe 同目录 `FlashGamerData`（目录不可写时再退回用户目录）。因此安装版卸载或升级不会删游戏库，免安装版仍然是绿色数据。
+
+打包（换独立输出目录，避开上一次的 `win-unpacked` 占用）：
+
+```bash
+npm ci
+npx electron-builder --win nsis --x64 \
+  --config.directories.output=release/build-0.3.1-installer-v2
+# 产物：release/build-0.3.1-installer-v2/FlashGamer-0.3.1-setup.exe
+```
+
+免安装 zip 用同一份 `win-unpacked` 整理，压缩包内保留 `FlashGamer-0.3.1/` 顶层目录：
+
+```bash
+mkdir -p .tmp-pack/FlashGamer-0.3.1
+cp -r release/build-0.3.1-installer-v2/win-unpacked/. .tmp-pack/FlashGamer-0.3.1/
+7za a -tzip -mx=5 release/FlashGamer-0.3.1-portable.zip .tmp-pack/FlashGamer-0.3.1
+```
+
+本机实测。静默安装要绕开 Git Bash 对 `/S` 与反斜杠的路径转换，改用 PowerShell 传参数：
+
+```bash
+powershell -NoProfile -Command "Start-Process -FilePath 'F:\Program\4399\release\build-0.3.1-installer-v2\FlashGamer-0.3.1-setup.exe' -ArgumentList @('/S','/D=F:\Program\FlashGamerTest') -Wait"
+```
+
+验证点：`F:\Program\FlashGamerTest\installed.marker` 存在；桌面与开始菜单出现 `Flash Gamer.lnk`；注册表 `HKCU\Software\<APP_GUID>` 的 `InstallLocation` 指向安装目录；首次运行后数据在 `%APPDATA%\Flash Gamer\FlashGamerData`，安装目录旁没有 `FlashGamerData`。
+
+静默卸载：
+
+```bash
+powershell -NoProfile -Command "Start-Process -FilePath 'F:\Program\FlashGamerTest\Uninstall Flash Gamer.exe' -ArgumentList '/S' -Wait"
+```
+
+在仓库外的路径测试，安装目录、快捷方式和卸载注册表项全部移除，`%APPDATA%\Flash Gamer\FlashGamerData\uninstall-sentinel.txt` 保留。
+
+> 不要把测试安装目录放在本仓库内（例如 `.tmp-install/`）。编辑器的文件索引会持有 60 MB 的 `resources/app.asar`，NSIS 卸载时删不掉，表现为留下 `resources/app.asar` 和 `default_app.asar`；装到仓库外即可完全删除，这不是安装脚本的缺陷。
+
+免安装版验证：解压后运行 exe，exe 同目录出现 `FlashGamerData/`，且没有 `installed.marker`。
+
+### 5.3.2 官网
+
+`site/` 是纯静态页面，无构建依赖：
+
+```
+site/
+  index.html          单页官网（功能介绍、浏览器模式、三步用法、FAQ、下载、SHA-256）
+  assets/style.css    浅色主题，桌面/手机自适应
+  assets/site.js      手机导航、复制校验值
+  assets/icon.png     应用图标
+  assets/app-main.png 主界面截图
+  assets/browser.png  浏览器窗口截图
+  assets/game.png     游戏运行截图
+```
+
+[`.github/workflows/pages.yml`](../.github/workflows/pages.yml) 在 `main` 分支的 `site/**` 变化时，用 `actions/upload-pages-artifact` + `actions/deploy-pages` 发布 `site/`。本地预览用任意静态服务器指向 `site/`。
 
 ### 5.4 自动化验收（无头/离屏）
 
@@ -472,9 +559,15 @@ AP_SMOKE_WAIT=12000 AP_SMOKE_CLICK=1 AP_SMOKE_OFFSCREEN=1 \
 | 后台运行（实测） | v0.3.0 | CDP 在游戏页计 rAF，浏览器窗口置前 5 秒 | 通过：rAF 392 → 859（+467 帧），游戏窗口 `hasFocus()=false`，画面循环未停 |
 | 浏览器窗口（打包 exe） | v0.3.1-dev | CDP `openBrowser()` + 截图 | 通过：4399 页面正常渲染；`docs/FlashGamer-v0.3.1-browser.png` |
 | 浏览器登录共享（打包 exe） | v0.3.0-dev | 页面登录弹窗 + 解析入库 | 通过：登录弹窗正常（`docs/FlashGamer-v0.3-browser-login.png`），解析条目 +1 |
+| 4399 弹窗改当前页 | v0.3.1 | CDP 在网页视图执行 `window.open(10802_1.htm)`，检查宿主窗口、地址栏、再次解析 | 通过：宿主窗口未关闭，网页视图导航到 `10802_1.htm`，地址栏同步，解析新增「可爱情侣装」 |
+| 输入框右键粘贴 | v0.3.1 / lite | 剪贴板写入哨兵 → 原生右键菜单 → 键盘粘贴 | 通过：两个版本的输入框都得到哨兵文本；菜单含撤销/重做/剪切/复制/粘贴/全选 |
+| NSIS 静默安装 | v0.3.1 | 安装到仓库外 `F:\Program\FlashGamerTest` | 通过：`installed.marker`、桌面/开始菜单快捷方式、`HKCU` 卸载项齐全 |
+| NSIS 静默卸载 | v0.3.1 | `Uninstall Flash Gamer.exe /S` | 通过：安装目录、快捷方式、注册表项全部移除；`%APPDATA%\Flash Gamer\FlashGamerData` 的哨兵文件保留 |
+| 免安装版数据位置 | v0.3.1 | 解压 zip 后运行 | 通过：`FlashGamerData/` 在 exe 旁，无 `installed.marker` |
+| 官网布局 | v0.3.1 | Electron CDP 全页截图（1425×4819 / 390×7365） | 通过：桌面与手机单栏正常，无横向溢出，截图、下载与 SHA-256 均显示 |
 | 去重 | v0.2.0/v0.3.0 | 重复解析两次 | 通过：条目数不增 |
 | exe 图标与版本信息 | v0.3.0/v0.3.1-dev | `VersionInfo` | 通过：`ProductName=Flash Gamer`，版本 0.3.0.0 / 0.3.1.0，图标为新 logo |
-| zip 完整性 | v0.3.0/v0.3.1-dev | `7za t` | 通过：两个 zip 均 `Everything is Ok` |
+| zip 完整性 | v0.3.0/v0.3.1-dev/v0.3.1 | `7za t` | 通过：各 zip 均 `Everything is Ok` |
 | v0.1/v0.2/v0.3.0-dev 产物保留 | — | 目录与校验和检查 | 通过：旧目录与 zip 未改动 |
 
 > 说明：无桌面会话时 `capturePage()` 可能返回 `UnknownVizError` 或旧帧；`AP_SMOKE_OFFSCREEN=1` 是可靠的截图方式。
@@ -525,6 +618,9 @@ AP_SMOKE_WAIT=12000 AP_SMOKE_CLICK=1 AP_SMOKE_OFFSCREEN=1 \
 
 | 路径 | 说明 | 大小 |
 | --- | --- | --- |
+| `release/FlashGamer-0.3.1-setup.exe` | v0.3.1 NSIS 安装程序（正式交付） | 136,648,895 B |
+| `release/FlashGamer-0.3.1-portable.zip` | v0.3.1 免安装压缩包（正式交付） | 174,709,633 B |
+| `site/` | v0.3.1 官网静态站点 | — |
 | `release/FlashGamer-0.3.0/` | v0.3.0 绿色版目录（无浏览器，含加壳修复） | 415 MB |
 | `release/FlashGamer-0.3.0-portable.zip` | v0.3.0 压缩包 | 174,652,965 B |
 | `release/FlashGamer-0.3.1-dev/` | v0.3.1-dev 绿色版目录（含网页浏览 + 加壳修复） | 415 MB |
@@ -539,6 +635,8 @@ AP_SMOKE_WAIT=12000 AP_SMOKE_CLICK=1 AP_SMOKE_OFFSCREEN=1 \
 校验值（本机生成，供比对）：
 
 ```
+811bec9778a3f0c99889b799d845a60552dff23e14d16a6ea98eb8fe4c1a1445  FlashGamer-0.3.1-setup.exe
+88be3781d954555c364d793ab4304b2ad20777b17ced29065decb47fec9ddc08  FlashGamer-0.3.1-portable.zip
 6242bcf87b9028f39035fda8aa0a90d75439ef849861a5e5c62bf7b7a9a46835  FlashGamer-0.3.0-portable.zip
 79f9604c4fe1325ee402714dd157dda90061a09d0b393ed56c22ec0d956dd7fb  FlashGamer-0.3.1-dev-portable.zip
 a51d94d6b9e4880c4a80974778d54d7ec704b2c878904895ecfdf1e715a86651  FlashGamer-0.2.0-portable.zip（历史）
@@ -547,5 +645,107 @@ dc40d2f2c212f4fd3785eeb352e7a1eab6781436c42bc90103d988883785800f  AppProfessor-0
 ```
 
 ```bash
-sha256sum release/FlashGamer-0.3.0-portable.zip release/FlashGamer-0.3.1-dev-portable.zip
+sha256sum release/FlashGamer-0.3.1-setup.exe release/FlashGamer-0.3.1-portable.zip \
+  release/FlashGamer-0.3.0-portable.zip release/FlashGamer-0.3.1-dev-portable.zip
 ```
+
+---
+
+## 10. v0.3.1 详细实现
+
+### 10.1 4399 链接在当前网页视图内打开
+
+问题：网页视图带 `allowpopups`，4399 里点游戏（页面执行 `window.open`）时，Electron 默认为 guest 开一个没有地址栏的新窗口，既不能继续登录，也没有「解析此页」。
+
+处理：在宿主窗口的 `did-attach-webview` 里接管 guest 的 `setWindowOpenHandler`，拒绝原生弹窗，改为在同一个 guest 里导航。Electron 45 已移除 `new-window` 事件，不能再走旧写法。
+
+```js
+browserWindow.webContents.on('did-attach-webview', (_event, guest) => {
+  attachEditMenu(guest, browserWindow);
+  guest.setWindowOpenHandler(({ url }) => {
+    if (/^https?:/i.test(url)) {
+      setImmediate(() => {
+        if (!guest.isDestroyed()) guest.loadURL(url).catch(() => {});
+      });
+    }
+    return { action: 'deny' };
+  });
+});
+```
+
+关键点：
+
+- 必须用 `setImmediate` 延后导航。在 `window-open` 回调里同步 `loadURL` 会把宿主浏览器窗口一起带崩（实测窗口直接消失）。
+- 只放行 `http/https`，其他 scheme（`javascript:`、自定义协议）直接丢弃。
+- 导航前检查 `guest.isDestroyed()`，避免窗口已关时抛异常。
+- `allowpopups` 仍要保留，否则 `window.open` 被内核直接拦截，链接会变成“点了没反应”；现在由上层接管。
+
+验收：CDP 在 4399 首页执行 `window.open('https://www.4399.com/flash/10802_1.htm')`，宿主窗口存活，webview URL 与地址栏同步更新，再点「解析此页」新增「可爱情侣装」。
+
+### 10.2 输入框右键菜单
+
+Electron 默认不提供右键菜单，所以输入框里右键没有任何菜单，也就无法粘贴。给所有需要编辑的 `webContents` 挂统一菜单：
+
+```js
+function attachEditMenu(contents, win) {
+  contents.on('context-menu', (_event, params) => {
+    const template = [];
+    if (params.isEditable) {
+      template.push(
+        { role: 'undo', label: '撤销' },
+        { role: 'redo', label: '重做' },
+        { type: 'separator' },
+        { role: 'cut', label: '剪切' },
+        { role: 'copy', label: '复制' },
+        { role: 'paste', label: '粘贴' },
+        { role: 'selectAll', label: '全选' }
+      );
+    } else if (params.selectionText && params.selectionText.trim()) {
+      template.push({ role: 'copy', label: '复制' }, { type: 'separator' }, { role: 'selectAll', label: '全选' });
+    } else {
+      return;
+    }
+    Menu.buildFromTemplate(template).popup(win && !win.isDestroyed() ? { window: win } : {});
+  });
+}
+```
+
+挂载点：主窗口、独立游戏窗口、浏览器窗口、浏览器窗口里的 webview guest。`role` 由 Chromium 执行，复制/粘贴自动适配密码框、只读框等原生行为。
+
+验收：剪贴板写入哨兵文本，原生右键菜单出现，键盘选择「粘贴」后输入框得到哨兵；主窗口与浏览器窗口都通过。
+
+### 10.3 安装程序
+
+安装器采用 electron-builder 的 NSIS assisted 模式（非 one-click）：安装向导可选目录，安装完创建桌面与开始菜单快捷方式，注册卸载项。配置见 5.3.1。
+
+数据位置用 `installed.marker` 区分，而不是在卸载脚本里搬文件：
+
+- 安装版：`%APPDATA%\Flash Gamer\FlashGamerData`。Electron 的 `app.getPath('userData')` 默认为 `%APPDATA%\Flash Gamer`，卸载器按 `deleteAppDataOnUninstall:false` 不碰它。
+- 免安装版：exe 同目录 `FlashGamerData`；目录不可写（只读 U 盘、Program Files）时探测失败，退回用户目录。
+- 开发模式：仓库 `data/`。
+
+这样升级时新安装包覆盖 `$INSTDIR` 不影响数据；卸载时 NSIS 只删除安装目录与快捷方式，不遍历 AppData。
+
+### 10.4 官网与发布
+
+`site/` 是零依赖静态站点，浅色主题，桌面双栏、手机单栏。下载按钮指向 GitHub Releases 的固定文件名：
+
+```
+https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.3.1-setup.exe
+https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.3.1-portable.zip
+```
+
+校验值区块直接写死构建产物的 SHA-256，复制按钮由 `assets/site.js` 调用 `navigator.clipboard`，失败时退回 `execCommand('copy')`。页面截图用 Electron 自带 Chromium 通过 CDP `Page.captureScreenshot(captureBeyondViewport:true)` 生成；截图前先滚动整页触发 `loading="lazy"` 的图片，再逐张 `decode()`，否则长图里的游戏截图会是空白占位。
+
+发布流程：
+
+1. `main` 推送站点与源码，GitHub Actions 用 `pages.yml` 发布 `site/`。
+2. 打 `v0.3.1` 标签，创建 Release，上传 `FlashGamer-0.3.1-setup.exe` 与 `FlashGamer-0.3.1-portable.zip`。
+3. Release 资产名必须与站点链接完全一致，`latest/download` 才能命中。
+4. `release/` 已加入 `.gitignore`，大文件不进 Git 历史，只作为 Release 资产上传。
+
+### 10.5 版本与工具链
+
+- Node.js 24.18.0，Electron 45.1.0，electron-builder 26.18.0，NSIS 3.0.4.1（electron-builder 缓存）。
+- v0.3.0 无浏览器版保留在 `lite` 分支和 `release/FlashGamer-0.3.0*`，未被 v0.3.1 覆盖。
+- 安装包未签名，SmartScreen 提示属预期；官网给出 SHA-256 供校验。
