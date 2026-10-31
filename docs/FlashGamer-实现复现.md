@@ -415,7 +415,7 @@ npx electron-builder --dir --win --x64 \
   --config.electronDist=release/electron-dist-45.1.0
 ```
 
-产物整理（`default_app.asar` 在运行测试时可能被系统占用而删不掉，直接排除；它只是 Electron 的兜底 app，存在 `app.asar` 时不会加载）：
+产物整理（`default_app.asar` 只是 Electron 的兜底 app，存在 `app.asar` 时不会加载；本机复制时它被系统占用未能删除，保留无影响，下面的命令仍以 `/XF` 排除）：
 
 ```bash
 robocopy "release\build-0.3.0-dir\win-unpacked" "release\FlashGamer-0.3.0" /E /XF default_app.asar
