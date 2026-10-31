@@ -5,6 +5,7 @@ Flash 小游戏离线馆。把 4399 / 7k7k 的 Flash 游戏页面粘贴进来，
 只运行游戏文件，不加载网页广告；不安装 Adobe Flash Player，也不带任何捆绑软件。
 
 - 官网：<https://zsof-rui.github.io/flash-gamer/>
+- 官网镜像：<https://flash-gamer-ch09cuq83vg.qoder.website/>
 - 下载：<https://github.com/ZSOF-Rui/flash-gamer/releases/latest>
 
 ## 版本

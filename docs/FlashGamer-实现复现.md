@@ -1,4 +1,4 @@
-# Flash Gamer 实现复现手册（v0.3.1）
+# Flash Gamer 实现复现手册（v0.3.2）
 
 本文按“需求 → 结论 → 实现 → 复现命令 → 验证证据 → 限制”的顺序记录本项目的全部改动。  
 目标读者是拿到源码后想把每一处行为重新做出来、或想定位某个游戏为什么不能玩的人。
@@ -19,25 +19,28 @@
 | R8 | 不行的功能就用 REA 逆向 | 对 4399 加载壳做二进制字符串提取、网络抓包与 Ruffle 内部行为验证 |
 | R9 | 把需求和所有功能具体实现思路复现 | 本文档 |
 | R10 | 完成之后关机 | 全部产物验证完毕后执行关机 |
+| R11 | 网页浏览时没法正常调用 Flash | 在网页浏览窗口打开 4399 游戏页，Flash 由内置 Ruffle 直接运行，不再要求系统 Flash 插件 |
+| R12 | 软件加入更新功能，更新源同时检测站点域名与 `flash.828696.xyz` 同目录 | 两个源并发检查，取最高版本；下载校验 SHA-256；任一源可用即可更新 |
+| R13 | 网站先用站点功能部署，解决后 GitHub 仓库名改为软件名 | Qoder Sites 与 GitHub Pages 都发布同一份站点；仓库名 `flash-gamer` 与软件名一致 |
 
 ---
 
 ## 2. 版本与分支
 
 ```
-main    Flash Gamer v0.3.1（浏览器 + 登录共享 + 加壳修复 + 安装程序 / 官网）
+main    Flash Gamer v0.3.2（网页内 Flash + 双源更新 + 安装程序 / 官网）
 dev     开发分支（v0.3.1 起与 main 同步，后续实验在此进行）
 lite    Flash Gamer v0.3.0（无浏览器，含 4399 加壳修复；旧 main 原样保留）
 v0.1.0  c773483  App Professor v0.1.0（只读归档）
 ```
 
-历史版本 v0.2.0（原 main 的 e2208c6）与 v0.3.0-dev（dev 的 ca0c608）的产物原样保留，不覆盖。v0.3.0 无浏览器版从 `main` 移到 `lite` 分支，`main` 从 v0.3.1 起承载带浏览器、安装程序和官网的正式版。
+历史版本 v0.2.0（原 main 的 e2208c6）与 v0.3.0-dev（dev 的 ca0c608）的产物原样保留，不覆盖。v0.3.0 无浏览器版从 `main` 移到 `lite` 分支，`main` 从 v0.3.1 起承载带浏览器、安装程序和官网的正式版；v0.3.2 在此基础上加入网页内 Flash 与双源更新。
 
 - v0.1 的源码快照取自 `release/AppProfessor/resources/app`，单独提交在 `v0.1-app-professor` 分支并打 `v0.1.0` 标签。
 - **v0.1 的任何运行产物都没有被覆盖**：
   - `release/AppProfessor/`
   - `release/AppProfessor-0.1.0-portable.zip`（sha256 不变）
-- 每次打包使用独立的临时目录（本次为 `release/build-0.3.0-dir`、`release/build-0.3.1-dev-dir`），最后整理成 `release/FlashGamer-<version>/` 及对应 zip；历史版本的目录与 zip 保持不变。
+- 每次打包使用独立的临时目录（v0.3.2 为 `release/build-0.3.2-dir3`），最后整理成 `release/FlashGamer-<version>/` 及对应 zip；历史版本的目录与 zip 保持不变。
 
 ---
 
@@ -564,6 +567,15 @@ AP_SMOKE_WAIT=12000 AP_SMOKE_CLICK=1 AP_SMOKE_OFFSCREEN=1 \
 | NSIS 静默安装 | v0.3.1 | 安装到仓库外 `F:\Program\FlashGamerTest` | 通过：`installed.marker`、桌面/开始菜单快捷方式、`HKCU` 卸载项齐全 |
 | NSIS 静默卸载 | v0.3.1 | `Uninstall Flash Gamer.exe /S` | 通过：安装目录、快捷方式、注册表项全部移除；`%APPDATA%\Flash Gamer\FlashGamerData` 的哨兵文件保留 |
 | 免安装版数据位置 | v0.3.1 | 解压 zip 后运行 | 通过：`FlashGamerData/` 在 exe 旁，无 `installed.marker` |
+| 网页浏览运行 Flash | v0.3.2 | CDP 打开 4410_2 / 205551_4 游戏页 | 通过：4410_2 进入海绵宝宝游戏画面并可操作；205551_4 显示游戏自身加载页（壳游戏仍受 Ruffle 兼容限制） |
+| 4399 遮挡层收起 | v0.3.2 | DOM dump + 点击后截图 | 通过：`#addiv`、`#loadingdiv` 隐藏，`#pusher` 高度归零，游戏画面露出；`docs/FlashGamer-v0.3.2-browser-flash.png` |
+| 双源更新检查 | v0.3.2 | 真实清单，`currentVersion=0.3.1` | 通过：Qoder 与 GitHub Pages 都返回 0.3.2；`flash.828696.xyz` 因 DNS 未配置报 `ERR_CONNECTION_CLOSED`，不影响其他源 |
+| 更新下载与校验 | v0.3.2 | 从真实清单下载 setup | 通过：136,655,685 B，SHA-256 `c56caa27…a06c` 与清单一致 |
+| 更新界面（模拟源） | v0.3.2 | 本地 v9.9.9 清单 + 64 KB 测试包 | 通过：检查、进度、下载完成、SHA-256 通过、按钮变「立即安装」；`docs/FlashGamer-v0.3.2-update-test.png` |
+| v0.3.2 静默安装 | v0.3.2 | 安装到仓库外 `F:\Program\FlashGamerTest-v032` | 通过：ProductVersion 0.3.2.0，启动 smoke 正常，静默卸载后目录、快捷方式、注册表项全部移除 |
+| v0.3.2 免安装包 | v0.3.2 | 解压 zip → 运行 → 检查数据目录 | 通过：顶层为 `FlashGamer-0.3.2/`，`FlashGamerData/` 在 exe 旁 |
+| v0.3.2 发布资产 | v0.3.2 | GitHub API asset digest | 通过：setup / portable 的 sha256 digest 与清单一致 |
+| 站点清单可达 | v0.3.2 | 通过系统代理 GET | 通过：Qoder 与 GitHub Pages 的 `/updates/win-x64.json` 均 200，内容为 0.3.2 |
 | 官网布局 | v0.3.1 | Electron CDP 全页截图（1425×4819 / 390×7365） | 通过：桌面与手机单栏正常，无横向溢出，截图、下载与 SHA-256 均显示 |
 | 去重 | v0.2.0/v0.3.0 | 重复解析两次 | 通过：条目数不增 |
 | exe 图标与版本信息 | v0.3.0/v0.3.1-dev | `VersionInfo` | 通过：`ProductName=Flash Gamer`，版本 0.3.0.0 / 0.3.1.0，图标为新 logo |
@@ -596,6 +608,9 @@ AP_SMOKE_WAIT=12000 AP_SMOKE_CLICK=1 AP_SMOKE_OFFSCREEN=1 \
 5. **HTTPS 证书**：主进程 `onHeadersReceived` 只为播放器上下文补 CORS，不忽略证书错误；某些老站点自签证书会直接失败。
 6. **广告拦截**：域名级黑名单可能误伤同域下的必要接口，遇到“加载卡住”可先用 `AP_OFFLINE` 之外的正常网络复测，并把必要路径加入 `PRELOADER_ALLOW`。
 7. **7k7k**：解析路径与 4399 共用 Inspector，但 7k7k 的播放器壳未做专门适配；本机仅验证了页面解析，未逐游戏验证。
+8. **内嵌游戏在网页里仍可能卡加载**：网页内 Ruffle 能播放普通 SWF，但不做 SWF 内嵌游戏抽取（抽取只发生在“解析入库”流程）。像 205551 这种“外壳里再套反加壳游戏”的页面，网页里会停在游戏自身的加载页；把它解析入库后由播放器抽取内层 SWF 才能玩。
+9. **`flash.828696.xyz` 尚未解析**：截至 v0.3.2 发布时，Cloudflare 上只有 `828696.xyz` 的 A 记录，没有 `flash` 子域记录。需要在 Cloudflare 添加 `CNAME flash → zsof-rui.github.io`，并在仓库 Pages 设置里填写 Custom domain；DNS 生效前更新器会跳过这一源。
+10. **本机访问 Qoder 站点需系统代理**：这台机器直连 Qoder 站点与 GitHub 会出现 TLS reset / DNS 失败，通过系统代理（`127.0.0.1:7890`）全部 200。更新器使用独立 session 跟随系统代理，因此在无代理环境下应能直连；该受限网络本身不代表站点故障。
 
 ---
 
@@ -616,13 +631,16 @@ AP_SMOKE_WAIT=12000 AP_SMOKE_CLICK=1 AP_SMOKE_OFFSCREEN=1 \
 
 ## 9. 产物清单
 
-`release/` 是本机构建输出，已加入 `.gitignore`，不进入 Git 仓库。GitHub Release 只上传 v0.3.1 的 `FlashGamer-0.3.1-setup.exe` 与 `FlashGamer-0.3.1-portable.zip`；下表中的旧版本产物是保留在本机的历史文件，未上传。
+`release/` 是本机构建输出，已加入 `.gitignore`，不进入 Git 仓库。GitHub Release 上传 v0.3.2 的 `FlashGamer-0.3.2-setup.exe` 与 `FlashGamer-0.3.2-portable.zip`；下表中的旧版本产物是保留在本机的历史文件，未覆盖。
 
 | 路径 | 说明 | 大小 |
 | --- | --- | --- |
-| `release/FlashGamer-0.3.1-setup.exe` | v0.3.1 NSIS 安装程序（正式交付） | 136,648,895 B |
-| `release/FlashGamer-0.3.1-portable.zip` | v0.3.1 免安装压缩包（正式交付） | 174,709,633 B |
-| `site/` | v0.3.1 官网静态站点 | — |
+| `release/FlashGamer-0.3.2-setup.exe` | v0.3.2 NSIS 安装程序（正式交付） | 136,655,685 B |
+| `release/FlashGamer-0.3.2-portable.zip` | v0.3.2 免安装压缩包（正式交付，顶层 `FlashGamer-0.3.2/`） | 174,633,126 B |
+| `site/` | v0.3.2 官网静态站点（GitHub Pages） | — |
+| `site/dist/` | 同一份站点的 Qoder Sites 部署副本（gitignore） | — |
+| `release/FlashGamer-0.3.1-setup.exe` | v0.3.1 NSIS 安装程序（历史） | 136,648,895 B |
+| `release/FlashGamer-0.3.1-portable.zip` | v0.3.1 免安装压缩包（历史） | 174,709,633 B |
 | `release/FlashGamer-0.3.0/` | v0.3.0 绿色版目录（无浏览器，含加壳修复） | 415 MB |
 | `release/FlashGamer-0.3.0-portable.zip` | v0.3.0 压缩包 | 174,652,965 B |
 | `release/FlashGamer-0.3.1-dev/` | v0.3.1-dev 绿色版目录（含网页浏览 + 加壳修复） | 415 MB |
@@ -637,6 +655,8 @@ AP_SMOKE_WAIT=12000 AP_SMOKE_CLICK=1 AP_SMOKE_OFFSCREEN=1 \
 校验值（本机生成，供比对）：
 
 ```
+c56caa274c612162536537971ef69be8fb3f4d0acabd0bfd76721ac51de2a06c  FlashGamer-0.3.2-setup.exe
+c9362a6b356334692edf83da2d3727c7c9c6b71495fed95684d703752aca46f4  FlashGamer-0.3.2-portable.zip
 811bec9778a3f0c99889b799d845a60552dff23e14d16a6ea98eb8fe4c1a1445  FlashGamer-0.3.1-setup.exe
 88be3781d954555c364d793ab4304b2ad20777b17ced29065decb47fec9ddc08  FlashGamer-0.3.1-portable.zip
 6242bcf87b9028f39035fda8aa0a90d75439ef849861a5e5c62bf7b7a9a46835  FlashGamer-0.3.0-portable.zip
@@ -647,8 +667,8 @@ dc40d2f2c212f4fd3785eeb352e7a1eab6781436c42bc90103d988883785800f  AppProfessor-0
 ```
 
 ```bash
-sha256sum release/FlashGamer-0.3.1-setup.exe release/FlashGamer-0.3.1-portable.zip \
-  release/FlashGamer-0.3.0-portable.zip release/FlashGamer-0.3.1-dev-portable.zip
+sha256sum release/FlashGamer-0.3.2-setup.exe release/FlashGamer-0.3.2-portable.zip \
+  release/FlashGamer-0.3.1-setup.exe release/FlashGamer-0.3.1-portable.zip
 ```
 
 ---
@@ -751,3 +771,178 @@ https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.3.
 - Node.js 24.18.0，Electron 45.1.0，electron-builder 26.18.0，NSIS 3.0.4.1（electron-builder 缓存）。
 - v0.3.0 无浏览器版保留在 `lite` 分支和 `release/FlashGamer-0.3.0*`，未被 v0.3.1 覆盖。
 - 安装包未签名，SmartScreen 提示属预期；官网给出 SHA-256 供校验。
+
+---
+
+## 11. v0.3.2 网页内 Flash 与软件更新
+
+### 11.1 网页浏览里 Flash 为什么调不起来
+
+内置浏览器窗口是一个 `<webview>` guest。Chromium 从 88 起彻底移除 PPAPI Flash，4399 页面里的 `<embed>` / `<object>` 不会被任何插件接手；页面脚本又用 SWFObject 生成这些标签，所以只改一个配置项没有用。
+
+4399 游戏页还有一层自己的遮挡：
+
+```html
+<div id="addiv">      <!-- 里面是 /loadimg/age.htm?id=... 的 iframe，健康忠告/年龄提示 -->
+<div id="loadingdiv"> <!-- 4399 自己的加载动画 -->
+<div id="pusher" style="height:2000px"> <!-- 把游戏div推到屏幕外 -->
+<div id="swfdiv">     <!-- 真正的游戏容器 -->
+```
+
+页面自己的 `showswf()` 依赖 Flash 的 `PercentLoaded()`、`setloaded()` 回调来隐藏 `#addiv`、收起 `#pusher`。Ruffle 替换了 Flash 对象，但没有这些 DOM 级回调，于是忠告层永远不消失。DOM dump 证实当时盖在游戏上的是 `#addiv` 里的 `age.htm` iframe，而不是游戏 SWF 本身。
+
+### 11.2 注入链路（复现步骤）
+
+入口在 `src/main.js`：
+
+1. `did-attach-webview` 拿到 guest 后，先 `loadURL('about:blank')`，等 120 ms 再 `guest.debugger.attach('1.3')`。刚创建就 attach 会把 Electron 网络服务带崩。
+2. `Page.enable` → `Page.addScriptToEvaluateOnNewDocument({ source, runImmediately:true })`，之后所有导航都在 document start 执行注入。
+3. 注入内容由 `buildBrowserInjection(port)` 生成，核心顺序：
+   - 跳过 `localhost` / `127.0.0.1`，避免影响播放器页。
+   - 重写 4399 的 `http://` 资源为 `https://`；`cdn.comment.4399pk.com/control/ctrl_mo_v5.swf` 改为本地 `vendor/4399/ctrl_mo_v5.swf`，避免混合内容与 403。
+   - 设置 `window.RufflePlayer.config`：`publicPath` 指向本地 `vendor/ruffle/`，`autoplay:on`、`allowNetworking:all`、`allowScriptAccess:true`、`upgradeToHttps:false`、`openUrlMode:deny`、`polyfills:true`。
+   - 4399 页面里 `getElementById('testplayer1')` 返回一个带 `checkflash()` 的占位对象，绕过“检测 Flash 是否安装”的分支。
+   - 隐藏 `Anti_open` / `Anti_mask` / `Anti_dialog` 三个反沉迷弹层（MutationObserver 持续监听）。
+   - 最后把 `vendor/ruffle/ruffle.js` 源码直接拼进注入脚本，由 Ruffle 自己接管页面里的 `embed` / `object`。
+   - 仅对 `/flash/<数字>[_数字].htm` 这类游戏页启动 `reveal4399()`：每 250 ms 检查一次是否已出现 `ruffle-embed` / `ruffle-player`，出现后隐藏 `#addiv`、`#loadingdiv`，把 `#pusher` 高度归零，并强制显示 `#swfdiv`。持续 120 次（30 秒），因为页面脚本会在加载过程中反复把 `#pusher` 写回来。
+4. 页面在注入前发生跳转时，`did-navigate` 会补挂调试器并重载；`window.open` 一律 deny，改为当前网页视图跳转，保留地址栏和“解析此页”。
+
+安全边界：guest 保持 `contextIsolation:true`、`nodeIntegration:false`、`sandbox:true`；注入只作用于 `http(s)` 且非本机地址；不安装系统 Flash，不修改浏览器插件。
+
+复现命令：
+
+```bash
+AP_SMOKE=1 AP_SMOKE_BROWSER_FLASH=1 \
+AP_SMOKE_BROWSER_FLASH_URL='https://www.4399.com/flash/205551_4.htm' \
+AP_SMOKE_FLASH_DOM=1 AP_SMOKE_FLASH_CLICK_WAIT=3000 \
+npx electron .
+```
+
+`AP_SMOKE_FLASH_DOM=1` 会输出 `#addiv/#loadingdiv/#swfdiv/#pusher` 的 rect 与 HTML，用来确认遮挡层是谁。注入后的截图见 `docs/FlashGamer-v0.3.2-browser-flash.png`：205551_4 的忠告层已消失，画面是游戏自己的加载页。
+
+注意：网页内注入只负责“运行页面里的 SWF”，不做内嵌游戏抽取。205551 这种外壳套反加壳游戏的页面，在网页里会停在游戏自身加载页；需要“解析此页”入库，由播放器抽取内层 SWF 后才能玩。
+
+### 11.3 双源更新
+
+清单固定在站点的 `updates/win-x64.json`：
+
+```json
+{
+  "version": "0.3.2",
+  "publishedAt": "2026-10-31",
+  "notes": "更新说明，可多行",
+  "assets": {
+    "setup":    { "url": "https://…/FlashGamer-0.3.2-setup.exe",    "size": 136655685, "sha256": "c56caa…a06c" },
+    "portable": { "url": "https://…/FlashGamer-0.3.2-portable.zip", "size": 174633126, "sha256": "c9362a…a46f4" }
+  }
+}
+```
+
+`src/lib/updater.js` 的默认源：
+
+1. `https://flash-gamer-ch09cuq83vg.qoder.website/updates/win-x64.json`（Qoder Sites）
+2. `https://flash.828696.xyz/updates/win-x64.json`（GitHub Pages 自定义域名）
+3. `https://zsof-rui.github.io/flash-gamer/updates/win-x64.json`（GitHub Pages 默认域名，兜底）
+
+`check()` 用 `Promise.all` 并发拉取，给每个 URL 加 `?t=<时间戳>` 和 `no-store`，避免 CDN 缓存。每份清单独立校验格式，取版本最高的一份；同版本的所有可用源组成 `candidates`，下载时按顺序回退。
+
+版本比较支持 `x.y.z` 与 `-prerelease` 后缀：数值段逐段比较，正式版大于同号预发布版。
+
+网络隔离是这次的关键点。应用默认 session 被设置为本地代理（`http=127.0.0.1:<本地端口>`，用于播放器与 4399 资源），如果更新器直接用 `net.fetch`，请求会被送进本地服务而不是系统代理。`main.js` 因此创建独立 session：
+
+```js
+const updateSession = session.fromPartition('flash-gamer-updater');
+updater = new Updater({
+  dataDir: DATA_DIR,
+  fetch: (url, init) => updateSession.fetch(url, init)
+});
+```
+
+这个 session 不挂任何 `webRequest` 注入，代理模式保持默认（跟随系统代理）。在需要代理的网络里能连通，在普通家庭网络里直接走系统直连。
+
+下载：`Readable.fromWeb(res.body)` 流式写 `.part`，边写边算 SHA-256，进度经 IPC `update:progress` 推到界面。完成后比对 `size` 与 `sha256`，通过才 `rename` 成正式文件；失败自动尝试下一条候选。超时 10 分钟，包体上限 400 MB，只接受 HTTPS（开发测试允许 `127.0.0.1` / `localhost` 的 HTTP）。
+
+安装：`update:install` 用 `shell.openPath` 打开 NSIS 安装程序，1.2 秒后退出主程序，让安装器替换文件；不会静默执行、不会自动重启。更新只覆盖程序目录，游戏库在 `%APPDATA%\Flash Gamer\FlashGamerData` 或免安装目录，不受影响。
+
+界面：主界面左下角「检查更新」按钮 + `#updateModal`（版本号、日期、大小、更新说明、进度条、状态、稍后/下载并安装）。启动 6 秒后自动静默检查，有更新才弹窗，不打断启动。开发环境变量：
+
+```bash
+AP_UPDATE_SOURCES=http://127.0.0.1:8766/updates/win-x64.json  # 覆盖清单源
+AP_UPDATE_DISABLE=1                                            # 关闭启动自动检查
+AP_SMOKE=1 AP_SMOKE_UPDATE=1                                   # 自动点击检查、下载，截图
+```
+
+### 11.4 v0.3.2 打包与发布
+
+版本号：`package.json` 与 `package-lock.json` 同时改为 `0.3.2`。
+
+安装程序：
+
+```bash
+npx electron-builder --win nsis --x64 \
+  --config.directories.output=release/build-0.3.2-dir3 \
+  --config.electronDist=release/electron-dist-45.1.0
+```
+
+必须加 `--config.electronDist` 的原因：这台机器上 Qoder 的索引进程会打开工作区里的 `.asar` 文件。electron-builder 下载 Electron 后要把 `win-unpacked.tmp` 改名成 `win-unpacked`，`default_app.asar` 被占用就报 `EPERM/EBUSY`。用已经解压好的 Electron 目录可以绕过“解压后改名”这一步。用 Sysinternals Handle 定位到的占用者是 `Qoder.exe`，不是程序自身的问题。
+
+免安装 zip：
+
+```bash
+cd .tmp-pack
+../node_modules/electron-winstaller/vendor/7z.exe a -tzip -mx=5 \
+  ../release/FlashGamer-0.3.2-portable.zip FlashGamer-0.3.2
+```
+
+注意要在 `.tmp-pack` 目录里执行，zip 顶层才会是 `FlashGamer-0.3.2/`。第一次直接在项目根执行，压出了 `.tmp-pack/FlashGamer-0.3.2/` 多一级目录，发布前已重打并替换资产。
+
+GitHub Release（API + 系统代理）：
+
+```bash
+# 创建 release
+curl -x http://127.0.0.1:7890 -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  --data @release.json \
+  https://api.github.com/repos/ZSOF-Rui/flash-gamer/releases
+
+# 上传资产（Content-Type: application/octet-stream）
+curl -x http://127.0.0.1:7890 -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/octet-stream' \
+  --data-binary @release/FlashGamer-0.3.2-setup.exe \
+  "https://uploads.github.com/repos/ZSOF-Rui/flash-gamer/releases/<id>/assets?name=FlashGamer-0.3.2-setup.exe"
+```
+
+GitHub 对上传资产返回 `digest: sha256:...`，可与本地 SHA-256 对照。替换同名资产要先 `DELETE /releases/assets/<asset_id>`，再重新上传，不能直接覆盖。
+
+站点发布：
+
+- GitHub Pages：`site/` 推送到 `main`，`.github/workflows/pages.yml` 自动发布；`site/updates/win-x64.json` 随之公开。
+- Qoder Sites：`site/dist/` 是同一份内容的部署副本。内容变化必须用新的 `actionId` 调 `prepare_site`，复用原 `projectId`；验证操作成功后再次 `prepare_site` 写回描述文件，然后 `publish_site`，最后用 `get_publish_status` 确认 `published:true`。
+- Qoder 公网域名：`https://flash-gamer-ch09cuq83vg.qoder.website`。
+- `flash.828696.xyz`：Cloudflare 上目前只有 `828696.xyz` 的 A 记录，`flash` 子域没有记录。需要添加 `CNAME flash → zsof-rui.github.io`，等 GitHub Pages 自定义域名验证通过后再在仓库 Pages 设置里填 `flash.828696.xyz`。在 DNS 生效前，更新器会把这一源标为失败，其他源正常。
+
+### 11.5 实测记录
+
+真实清单检查（`currentVersion=0.3.1`）：
+
+```
+Qoder   ok  0.3.2
+Pages   ok  0.3.2
+flash.828696.xyz  error  net::ERR_CONNECTION_CLOSED
+```
+
+真实下载（setup）：`136,655,685 B`，SHA-256 `c56caa274c612162536537971ef69be8fb3f4d0acabd0bfd76721ac51de2a06c`，与清单一致。
+
+模拟新版本（本地 v9.9.9 清单 + 64 KB 包）：界面显示“发现新版本 v9.9.9”，下载到 100%，状态“下载完成，SHA-256 校验通过”，按钮变“立即安装”。
+
+安装包：静默安装到仓库外目录，`ProductVersion=0.3.2.0`；启动 smoke 正常；静默卸载后安装目录、快捷方式、`HKCU` 卸载项全部移除。安装到工作区内时 Qoder 索引会占用 `app.asar` 导致卸载残留，这是本机工具行为，不是安装器逻辑。
+
+免安装包：7z 解压后顶层是 `FlashGamer-0.3.2/`，运行 `Flash Gamer.exe` 生成同级 `FlashGamerData/`，smoke 正常。
+
+站点清单：Qoder 与 GitHub Pages 的 `updates/win-x64.json` 通过系统代理均返回 200，`portable.sha256` 与替换后的资产一致。
+
+### 11.6 验收截图
+
+![v0.3.2 网页内 Flash](FlashGamer-v0.3.2-browser-flash.png)
+
+![v0.3.2 更新界面（模拟源）](FlashGamer-v0.3.2-update-test.png)
