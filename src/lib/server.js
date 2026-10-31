@@ -132,7 +132,7 @@ function buildBoot(item) {
   };
 }
 
-async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTemplate }) {
+async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTemplate, cookieProvider }) {
   const token = crypto.randomBytes(16).toString('hex');
   const globalCache = ensureDir(path.join(dataDir, 'cache'));
   const OFFLINE = process.env.AP_OFFLINE === '1';
@@ -167,6 +167,16 @@ async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTempla
     })();
     innerSwfJobs.set(item.id, job);
     return job;
+  };
+
+  const resolveCookie = async (url, item) => {
+    try {
+      if (cookieProvider) {
+        const c = await cookieProvider(url);
+        if (c) return c;
+      }
+    } catch {}
+    return (item && item.cookie) || '';
   };
 
   const CORS = {
@@ -218,7 +228,8 @@ async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTempla
       const headers = { 'User-Agent': UA, Accept: '*/*' };
       const referer = item.referer || item.pageUrl;
       if (referer) headers.Referer = referer;
-      if (item.cookie) headers.Cookie = item.cookie;
+      const cookie = await resolveCookie(targetUrl, item);
+      if (cookie) headers.Cookie = cookie;
       upstream = await fetch(targetUrl, {
         headers,
         redirect: 'follow',
@@ -275,6 +286,8 @@ async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTempla
       try {
         const headers = { 'User-Agent': UA, 'Content-Type': req.headers['content-type'] || 'application/x-www-form-urlencoded' };
         if (ref) headers.Referer = ref;
+        const cookie = await resolveCookie(target.href, item);
+        if (cookie) headers.Cookie = cookie;
         const upstream = await fetch(target.href, {
           method: req.method,
           headers,
@@ -294,6 +307,8 @@ async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTempla
       const headers = { 'User-Agent': UA, Accept: req.headers.accept || '*/*' };
       if (req.headers['accept-language']) headers['Accept-Language'] = req.headers['accept-language'];
       if (ref) headers.Referer = ref;
+      const cookie = await resolveCookie(target.href, item);
+      if (cookie) headers.Cookie = cookie;
       upstream = await fetch(target.href, { headers, redirect: 'follow', signal: AbortSignal.timeout(45000) });
     } catch (e) {
       return send(res, 502, `proxy error: ${e.message}`, 'text/plain; charset=utf-8', CORS);
@@ -380,6 +395,14 @@ async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTempla
       }
       if (!fs.existsSync(file)) return send(res, 404, 'not found');
       return serveFile(req, res, file);
+    }
+
+    if (pathname === '/browser') {
+      const html = fs.readFileSync(path.join(rendererDir, 'browser.html'), 'utf8');
+      return send(res, 200, html, 'text/html; charset=utf-8', {
+        'Content-Security-Policy': HTML_CSP,
+        'X-Content-Type-Options': 'nosniff'
+      });
     }
 
     const playMatch = pathname.match(/^\/play\/([^/]+)$/);

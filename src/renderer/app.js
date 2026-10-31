@@ -234,6 +234,8 @@ $('#btnDelete').onclick = async () => {
   }
 };
 
+$('#btnBrowser').onclick = () => window.api.openBrowser();
+
 $('#btnImport').onclick = async () => {
   const added = await window.api.importSwf();
   if (added && added.length) {
@@ -293,6 +295,8 @@ window.addEventListener('message', (e) => {
     toast(`播放器：${d.message}`);
   }
 });
+
+window.api.onLibraryChanged(async () => { await refresh(); });
 
 window.__apSelect = select;
 window.__apRefresh = refresh;

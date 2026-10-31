@@ -1,6 +1,6 @@
 {
   "name": "flash-gamer",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "Flash Gamer：Flash 小游戏离线馆，提取 SWF、本地运行、无网页广告",
   "main": "src/main.js",
@@ -8,7 +8,8 @@
     "start": "electron .",
     "vendor": "node scripts/vendor-ruffle.js",
     "postinstall": "node scripts/vendor-ruffle.js",
-    "dist": "electron-builder --win portable --x64"
+    "dist": "electron-builder --win nsis portable --x64",
+    "dist:installer": "electron-builder --win nsis --x64"
   },
   "dependencies": {
     "@ruffle-rs/ruffle": "0.8.0-nightly.2026.10.29"
@@ -33,12 +34,31 @@
       "icon": "build/icon.ico",
       "target": [
         {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
           "target": "portable",
           "arch": [
             "x64"
           ]
         }
       ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Flash Gamer",
+      "language": "2052",
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "FlashGamer-${version}-setup.${ext}",
+      "include": "build/installer.nsh"
     },
     "portable": {
       "artifactName": "FlashGamer-${version}-portable.exe"

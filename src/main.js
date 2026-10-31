@@ -15,9 +15,31 @@ app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 
-const DATA_DIR = process.env.AP_DATA_DIR || (app.isPackaged
-  ? path.join(process.env.PORTABLE_EXECUTABLE_DIR || path.dirname(app.getPath('exe')), 'FlashGamerData')
-  : path.join(__dirname, '..', 'data'));
+function writableDir(dir) {
+  try {
+    ensureDir(dir);
+    const probe = path.join(dir, '.write-probe');
+    fs.writeFileSync(probe, '');
+    fs.unlinkSync(probe);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function resolveDataDir() {
+  if (process.env.AP_DATA_DIR) return process.env.AP_DATA_DIR;
+  if (!app.isPackaged) return path.join(__dirname, '..', 'data');
+  const base = process.env.PORTABLE_EXECUTABLE_DIR || path.dirname(app.getPath('exe'));
+  if (fs.existsSync(path.join(base, 'installed.marker'))) {
+    return path.join(app.getPath('userData'), 'FlashGamerData');
+  }
+  const beside = path.join(base, 'FlashGamerData');
+  // 绿色版放在只读目录时退回用户目录
+  return writableDir(beside) ? beside : path.join(app.getPath('userData'), 'FlashGamerData');
+}
+
+const DATA_DIR = resolveDataDir();
 const LEGACY_DATA_DIR = app.isPackaged
   ? path.join(path.dirname(DATA_DIR), 'AppProfessorData')
   : null;
@@ -40,6 +62,8 @@ let lib = null;
 let srv = null;
 const inspectSessions = new Map();
 const gameWindows = new Map();
+let browserWindow = null;
+let browserParsing = false;
 
 function extFromType(ct) {
   if (/png/i.test(ct)) return '.png';
@@ -238,6 +262,68 @@ function openGameWindow(id) {
   return true;
 }
 
+function openBrowserWindow() {
+  if (browserWindow && !browserWindow.isDestroyed()) {
+    if (browserWindow.isMinimized()) browserWindow.restore();
+    browserWindow.show();
+    browserWindow.focus();
+    return true;
+  }
+  browserWindow = new BrowserWindow({
+    width: 1280,
+    height: 860,
+    minWidth: 980,
+    minHeight: 620,
+    backgroundColor: '#f4f5f7',
+    autoHideMenuBar: true,
+    title: '网页浏览 — Flash Gamer',
+    icon: path.join(__dirname, 'renderer', 'icon.png'),
+    webPreferences: {
+      preload: path.join(__dirname, 'browser-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webviewTag: true,
+      backgroundThrottling: false,
+      ...(process.env.AP_SMOKE_OFFSCREEN === '1' ? { offscreen: true } : {})
+    }
+  });
+  browserWindow.loadURL(`${srv.origin}/browser`);
+  attachEditMenu(browserWindow.webContents, browserWindow);
+  browserWindow.on('closed', () => { browserWindow = null; });
+  browserWindow.webContents.on('did-attach-webview', (_event, guest) => {
+    attachEditMenu(guest, browserWindow);
+    // 弹窗在当前网页视图里打开，保留地址栏和“解析此页”；必须延后一帧再导航，
+    // 在 window-open 回调里同步 loadURL 会把宿主窗口一起带崩。
+    guest.setWindowOpenHandler(({ url }) => {
+      if (/^https?:/i.test(url)) {
+        setImmediate(() => {
+          if (!guest.isDestroyed()) guest.loadURL(url).catch(() => {});
+        });
+      }
+      return { action: 'deny' };
+    });
+  });
+  browserWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:/i.test(url)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
+  browserWindow.webContents.on('will-navigate', (e, url) => {
+    if (!url.startsWith(`${srv.origin}/browser`)) e.preventDefault();
+  });
+  return true;
+}
+
+function isPlayerContext(details) {
+  const id = details.webContentsId;
+  if (!id) return false;
+  if (mainWindow && !mainWindow.isDestroyed() && id === mainWindow.webContents.id) return true;
+  for (const w of gameWindows.values()) {
+    if (!w.isDestroyed() && id === w.webContents.id) return true;
+  }
+  return false;
+}
+
 async function registerIpc() {
   ipcMain.handle('library:list', () => lib.list());
 
@@ -275,6 +361,28 @@ async function registerIpc() {
   ipcMain.handle('library:cacheStats', (_e, id) => lib.cacheStats(id));
 
   ipcMain.handle('library:openWindow', (_e, id) => openGameWindow(id));
+
+  ipcMain.handle('browser:open', () => openBrowserWindow());
+
+  ipcMain.handle('browser:parse', async (_e, pageUrl) => {
+    if (!/^https?:/i.test(String(pageUrl || ''))) throw new Error('当前不是网页地址');
+    if (browserParsing) throw new Error('正在解析上一个页面，请稍候');
+    browserParsing = true;
+    const progress = (m) => {
+      if (browserWindow && !browserWindow.isDestroyed()) browserWindow.webContents.send('browser:progress', m);
+    };
+    try {
+      const res = await inspectPage({ pageUrl, tmpDir: TMP_DIR, onProgress: progress });
+      if (!res.candidates.length) {
+        throw new Error(res.hasH5 ? '这是 H5 游戏，页面里没有 SWF' : '没抓到 SWF，先在页面里点一下“开始游戏”再试');
+      }
+      const item = await buildItemFromCandidate({ session: res, candidate: res.candidates[0] });
+      if (mainWindow) mainWindow.webContents.send('library:changed');
+      return { item: { id: item.id, title: item.title, size: item.size }, count: res.candidates.length };
+    } finally {
+      browserParsing = false;
+    }
+  });
 
   ipcMain.handle('library:remove', async (_e, id) => {
     const item = lib.get(id);
@@ -469,6 +577,30 @@ async function smoke() {
     } catch (e) { result.error = String(e.stack || e); }
   }
 
+  if (process.env.AP_SMOKE_BROWSER === '1') {
+    try {
+      openBrowserWindow();
+      await new Promise((r) => setTimeout(r, 3000));
+      await browserWindow.webContents.executeJavaScript(`(() => { const a = document.getElementById('addr'); a.value = 'https://www.4399.com/flash/40779_3.htm'; document.getElementById('go').click(); return true; })()`);
+      await new Promise((r) => setTimeout(r, 12000));
+      try {
+        const img = await browserWindow.capturePage();
+        const file = path.join(DATA_DIR, 'smoke-browser.png');
+        fs.writeFileSync(file, img.toPNG());
+        result.browserShot = file;
+      } catch (e) { result.browserShotError = String(e.message || e); }
+      result.browser = await browserWindow.webContents.executeJavaScript(`(() => { const v = document.querySelector('#view'); let u = ''; try { u = v.getURL(); } catch (e) { u = 'ERR:' + e.message; } return { url: u, title: document.title, status: document.getElementById('status').textContent }; })()`);
+      if (process.env.AP_SMOKE_BROWSER_PARSE === '1') {
+        await browserWindow.webContents.executeJavaScript(`document.getElementById('parse').click()`);
+        await new Promise((r) => setTimeout(r, 30000));
+        result.browserParse = await browserWindow.webContents.executeJavaScript(`(() => ({ toast: document.getElementById('toast').textContent, status: document.getElementById('status').textContent }))()`);
+        result.libraryCount = lib.list().length;
+      }
+    } catch (e) {
+      result.browserError = String(e.stack || e);
+    }
+  }
+
   result.shots = shots;
   fs.writeFileSync(out, JSON.stringify(result, null, 2));
   console.log('SMOKE_RESULT', out);
@@ -490,7 +622,15 @@ if (!gotLock) {
       lib,
       rendererDir: path.join(__dirname, 'renderer'),
       vendorDir: path.join(__dirname, '..', 'vendor', 'ruffle'),
-      playerTemplate: path.join(__dirname, 'renderer', 'player.html')
+      playerTemplate: path.join(__dirname, 'renderer', 'player.html'),
+      cookieProvider: async (url) => {
+        try {
+          const cks = await session.defaultSession.cookies.get({ url });
+          return cks.map((c) => `${c.name}=${c.value}`).join('; ');
+        } catch {
+          return '';
+        }
+      }
     });
     await registerIpc();
 
@@ -512,16 +652,18 @@ if (!gotLock) {
     });
 
     // 4399 CDN 校验来源页；外链请求补上当前游戏的 Referer/Cookie
-    session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['*://*/*'] }, (details, callback) => {
+    session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['*://*/*'] }, async (details, callback) => {
       const headers = { ...(details.requestHeaders || {}) };
       const item = srv.getActiveGame && srv.getActiveGame();
       try {
         const u = new URL(details.url);
         const local = u.hostname === '127.0.0.1' || u.hostname === 'localhost';
-        if (!local && item) {
+        if (!local && item && isPlayerContext(details)) {
           const ref = item.referer || item.pageUrl;
           if (ref) headers.Referer = ref;
           if (item.cookie) headers.Cookie = item.cookie;
+          const cks = await session.defaultSession.cookies.get({ url: details.url });
+          if (cks.length) headers.Cookie = cks.map((c) => `${c.name}=${c.value}`).join('; ');
         }
       } catch {}
       callback({ requestHeaders: headers });
@@ -530,7 +672,7 @@ if (!gotLock) {
     // Ruffle 用 fetch 取跨域素材，HTTPS 请求不经过本地代理，需要补 CORS 头
     session.defaultSession.webRequest.onHeadersReceived({ urls: ['*://*/*'] }, (details, callback) => {
       const headers = { ...(details.responseHeaders || {}) };
-      if (!/^http:\/\/(127\.0\.0\.1|localhost)/i.test(details.url)) {
+      if (!/^http:\/\/(127\.0\.0\.1|localhost)/i.test(details.url) && isPlayerContext(details)) {
         headers['Access-Control-Allow-Origin'] = ['*'];
         headers['Access-Control-Allow-Headers'] = ['*'];
         headers['Access-Control-Allow-Methods'] = ['GET, POST, OPTIONS'];
