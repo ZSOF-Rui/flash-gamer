@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, session } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog, shell, session } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const Library = require('./lib/library');
@@ -135,6 +135,29 @@ async function buildItemFromCandidate({ session, candidate, title }) {
   return item;
 }
 
+// Electron 默认不提供右键菜单，输入框里右键没有“粘贴”。给可编辑区域补上系统菜单。
+function attachEditMenu(contents, win) {
+  contents.on('context-menu', (_event, params) => {
+    const template = [];
+    if (params.isEditable) {
+      template.push(
+        { role: 'undo', label: '撤销' },
+        { role: 'redo', label: '重做' },
+        { type: 'separator' },
+        { role: 'cut', label: '剪切' },
+        { role: 'copy', label: '复制' },
+        { role: 'paste', label: '粘贴' },
+        { role: 'selectAll', label: '全选' }
+      );
+    } else if (params.selectionText && params.selectionText.trim()) {
+      template.push({ role: 'copy', label: '复制' }, { type: 'separator' }, { role: 'selectAll', label: '全选' });
+    } else {
+      return;
+    }
+    Menu.buildFromTemplate(template).popup(win && !win.isDestroyed() ? { window: win } : {});
+  });
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -157,6 +180,7 @@ function createWindow() {
   });
 
   mainWindow.loadURL(srv.url);
+  attachEditMenu(mainWindow.webContents, mainWindow);
 
   if (process.env.AP_SMOKE) {
     mainWindow.webContents.on('console-message', (...args) => {
@@ -206,6 +230,7 @@ function openGameWindow(id) {
     }
   });
   win.loadURL(`${srv.origin}/play/${id}`);
+  attachEditMenu(win.webContents, win);
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
@@ -242,7 +267,21 @@ function openBrowserWindow() {
     }
   });
   browserWindow.loadURL(`${srv.origin}/browser`);
+  attachEditMenu(browserWindow.webContents, browserWindow);
   browserWindow.on('closed', () => { browserWindow = null; });
+  browserWindow.webContents.on('did-attach-webview', (_event, guest) => {
+    attachEditMenu(guest, browserWindow);
+    // 弹窗在当前网页视图里打开，保留地址栏和“解析此页”；必须延后一帧再导航，
+    // 在 window-open 回调里同步 loadURL 会把宿主窗口一起带崩。
+    guest.setWindowOpenHandler(({ url }) => {
+      if (/^https?:/i.test(url)) {
+        setImmediate(() => {
+          if (!guest.isDestroyed()) guest.loadURL(url).catch(() => {});
+        });
+      }
+      return { action: 'deny' };
+    });
+  });
   browserWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
