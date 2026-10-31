@@ -31,6 +31,7 @@
       <div id="list" class="list"></div>
       <div class="side-foot">
         <div id="cacheLine" class="muted">缓存 0 B</div>
+        <button id="btnUpdate" class="ghost update-btn">检查更新</button>
       </div>
     </aside>
 
@@ -61,7 +62,10 @@
 
   <footer class="statusbar">
     <span id="status">就绪</span>
-    <span id="cachedInfo" class="muted"></span>
+    <span class="foot-right">
+      <span id="cachedInfo" class="muted"></span>
+      <span id="appVersion" class="muted"></span>
+    </span>
   </footer>
 
   <div id="modal" class="modal hidden">
@@ -72,6 +76,20 @@
       <div class="modal-actions">
         <button id="btnCancel" class="ghost">取消</button>
         <button id="btnConfirm" class="primary" disabled>添加</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="updateModal" class="modal hidden">
+    <div class="modal-card update-card">
+      <h3 id="updateTitle">发现新版本</h3>
+      <p class="muted" id="updateMeta"></p>
+      <div id="updateNotes" class="update-notes"></div>
+      <div id="updateProgressWrap" class="update-progress hidden"><div id="updateProgressBar"></div></div>
+      <div id="updateState" class="update-state"></div>
+      <div class="modal-actions">
+        <button id="btnUpdateLater" class="ghost">稍后</button>
+        <button id="btnUpdateAction" class="primary">下载并安装</button>
       </div>
     </div>
   </div>

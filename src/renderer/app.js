@@ -298,6 +298,129 @@ window.addEventListener('message', (e) => {
 
 window.api.onLibraryChanged(async () => { await refresh(); });
 
+/* ---------- 软件更新 ---------- */
+
+const upd = { info: null, downloaded: null, busy: false };
+
+function errText(e) {
+  return String((e && e.message) || e).replace(/^Error invoking remote method '[^']+':\s*Error:\s*/, '');
+}
+
+function setUpdateButton(label, hasUpdate) {
+  const b = $('#btnUpdate');
+  b.textContent = label;
+  b.classList.toggle('has-update', !!hasUpdate);
+}
+
+function showUpdate(info) {
+  upd.info = info;
+  $('#updateTitle').textContent = `发现新版本 v${info.version}`;
+  const bits = [`当前 v${info.current}`];
+  if (info.size) bits.push(`安装包 ${fmt(info.size)}`);
+  if (info.publishedAt) {
+    const d = new Date(info.publishedAt);
+    if (!Number.isNaN(d.getTime())) bits.push(d.toLocaleDateString('zh-CN'));
+  }
+  $('#updateMeta').textContent = bits.join(' · ');
+  $('#updateNotes').textContent = info.notes || '本次更新暂未附说明。';
+  $('#updateProgressWrap').classList.add('hidden');
+  $('#updateProgressBar').style.width = '0%';
+  $('#updateState').textContent = '';
+  const action = $('#btnUpdateAction');
+  action.textContent = upd.downloaded ? '立即安装' : '下载并安装';
+  action.disabled = false;
+  $('#updateModal').classList.remove('hidden');
+}
+
+function closeUpdate() { $('#updateModal').classList.add('hidden'); }
+
+async function checkUpdate(silent) {
+  if (upd.busy) return;
+  upd.busy = true;
+  const btn = $('#btnUpdate');
+  btn.disabled = true;
+  if (!silent) { setUpdateButton('正在检查…', false); setStatus('正在检查更新…', true); }
+  try {
+    const info = await window.api.checkUpdate();
+    upd.info = info;
+    const reachable = (info.sources || []).filter((s) => s.ok).length;
+    if (info.available) {
+      setUpdateButton(`发现 v${info.version}，点击更新`, true);
+      if (!silent) { showUpdate(info); setStatus('就绪'); }
+    } else if (!reachable) {
+      setUpdateButton('检查更新', false);
+      if (!silent) { toast('检查更新失败：更新源暂时连不上'); setStatus('检查更新失败'); }
+    } else {
+      setUpdateButton('检查更新', false);
+      if (!silent) { toast(`已是最新版本 v${info.current}`); setStatus('就绪'); }
+    }
+  } catch (e) {
+    setUpdateButton('检查更新', false);
+    if (!silent) { toast('检查更新失败：' + errText(e)); setStatus('检查更新失败'); }
+  } finally {
+    upd.busy = false;
+    btn.disabled = false;
+  }
+}
+
+async function downloadUpdate() {
+  const action = $('#btnUpdateAction');
+  if (upd.downloaded) {
+    action.disabled = true;
+    action.textContent = '正在启动…';
+    try {
+      await window.api.installUpdate();
+      $('#updateState').textContent = '安装程序已启动，应用即将退出。';
+    } catch (e) {
+      action.disabled = false;
+      action.textContent = '立即安装';
+      $('#updateState').textContent = '启动安装程序失败：' + errText(e);
+    }
+    return;
+  }
+  if (!upd.info) return;
+  action.disabled = true;
+  action.textContent = '正在下载…';
+  $('#updateProgressWrap').classList.remove('hidden');
+  $('#updateProgressBar').style.width = '0%';
+  $('#updateState').textContent = upd.info.size ? `准备下载 ${fmt(upd.info.size)}` : '准备下载';
+  try {
+    const res = await window.api.downloadUpdate();
+    upd.downloaded = res.path;
+    $('#updateProgressBar').style.width = '100%';
+    $('#updateState').textContent = '下载完成，SHA-256 校验通过';
+    action.disabled = false;
+    action.textContent = '立即安装';
+  } catch (e) {
+    action.disabled = false;
+    action.textContent = '重试下载';
+    $('#updateState').textContent = '下载失败：' + errText(e);
+  }
+}
+
+$('#btnUpdate').onclick = () => {
+  if (upd.info && upd.info.available) showUpdate(upd.info);
+  else checkUpdate(false);
+};
+$('#btnUpdateLater').onclick = closeUpdate;
+$('#updateModal').addEventListener('click', (e) => { if (e.target.id === 'updateModal') closeUpdate(); });
+$('#btnUpdateAction').onclick = downloadUpdate;
+
+window.api.onUpdateProgress((p) => {
+  if (!p || !p.total) return;
+  const pct = Math.max(0, Math.min(100, Math.round((p.received / p.total) * 100)));
+  $('#updateProgressBar').style.width = pct + '%';
+  $('#updateState').textContent = `已下载 ${fmt(p.received)} / ${fmt(p.total)}（${pct}%）`;
+});
+
+window.api.onUpdateAvailable((info) => {
+  upd.info = info;
+  setUpdateButton(`发现 v${info.version}，点击更新`, true);
+  toast(`发现新版本 v${info.version}`);
+});
+
+window.api.appVersion().then((r) => { $('#appVersion').textContent = `v${r.version}`; }).catch(() => {});
+
 window.__apSelect = select;
 window.__apRefresh = refresh;
 

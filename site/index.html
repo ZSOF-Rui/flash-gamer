@@ -34,15 +34,15 @@
     <section class="hero">
       <div class="wrap hero-grid">
         <div class="hero-copy">
-          <span class="pill">v0.3.1 · Windows 10 / 11 64 位</span>
+          <span class="pill">v0.3.2 · Windows 10 / 11 64 位</span>
           <h1>把 Flash 小游戏，<br><em>留在自己电脑里。</em></h1>
           <p class="lead">把 4399 / 7k7k 的游戏页地址粘进来，自动取出游戏本体，存到本机。之后断网也能打开，不装 Adobe Flash，也不会弹出游戏网页里的广告。</p>
           <div class="actions">
-            <a class="btn btn-primary" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.3.1-setup.exe" data-download="setup">
+            <a class="btn btn-primary" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.3.2-setup.exe" data-download="setup">
               下载安装版
               <span class="btn-note">约 130 MB</span>
             </a>
-            <a class="btn btn-ghost" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.3.1-portable.zip" data-download="portable">
+            <a class="btn btn-ghost" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.3.2-portable.zip" data-download="portable">
               下载免安装版
               <span class="btn-note">解压即用</span>
             </a>
@@ -130,12 +130,13 @@
           <img src="assets/browser.png" alt="内置网页浏览窗口，可以在 4399 页面里登录并解析当前页" width="1920" height="1290" loading="lazy">
         </figure>
         <div class="browser-copy">
-          <span class="eyebrow">0.3.1 新增</span>
+          <span class="eyebrow">网页浏览</span>
           <h2>需要登录的游戏，<br>在应用里直接登录</h2>
           <p>内置网页浏览窗口，可以像普通浏览器一样打开 4399、登录账号，再点“解析此页”。登录状态保存在本机，解析和游戏请求会自动带上 Cookie。</p>
           <ul class="check-list">
             <li>游戏里的链接在当前页打开，不再弹出没有地址栏的小窗</li>
             <li>地址栏、前进后退、刷新与“解析此页”始终可用</li>
+            <li>内置 Ruffle，网页里的 Flash 游戏也能直接运行</li>
             <li>浏览与解析在同一个窗口，登录态不会丢</li>
           </ul>
           <p class="muted small">网页浏览会打开 4399 原页面，页面自身的广告由 4399 决定；只有游戏播放器不加载网页。</p>
@@ -212,6 +213,10 @@
             <p>Ruffle 兼容大多数 Flash 8 / AS2 游戏；依赖冷门 AS3 特性、3D 加速或联网服务的游戏可能无法运行。这是 Ruffle 的兼容范围，不是解析失败。</p>
           </details>
           <details>
+            <summary>以后怎么更新？</summary>
+            <p>软件启动后会自动检查新版本，也可以点主界面左下角的「检查更新」。发现更新后会下载安装包并核对 SHA-256，校验通过后再打开安装程序。更新只替换程序文件，本地游戏库不受影响。</p>
+          </details>
+          <details>
             <summary>会收集我的账号或游戏数据吗？</summary>
             <p>不会。程序没有遥测与上报，解析、缓存和播放都在本机完成。登录 Cookie 只保存在本机，用于在解析游戏时带上登录态。</p>
           </details>
@@ -238,8 +243,8 @@
               <li>桌面 + 开始菜单快捷方式</li>
               <li>游戏库存放在用户目录，卸载不删除</li>
             </ul>
-            <a class="btn btn-primary btn-block" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.3.1-setup.exe" data-download="setup">
-              下载 FlashGamer-0.3.1-setup.exe
+            <a class="btn btn-primary btn-block" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.3.2-setup.exe" data-download="setup">
+              下载 FlashGamer-0.3.2-setup.exe
             </a>
             <p class="file-meta"><span data-size="setup">约 130 MB</span> · 未签名 · <a href="#verify">校验值</a></p>
           </article>
@@ -253,8 +258,8 @@
               <li>数据跟着文件夹走</li>
               <li>删掉文件夹即清空</li>
             </ul>
-            <a class="btn btn-ghost btn-block" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.3.1-portable.zip" data-download="portable">
-              下载 FlashGamer-0.3.1-portable.zip
+            <a class="btn btn-ghost btn-block" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.3.2-portable.zip" data-download="portable">
+              下载 FlashGamer-0.3.2-portable.zip
             </a>
             <p class="file-meta"><span data-size="portable">约 167 MB</span> · 未签名 · <a href="#verify">校验值</a></p>
           </article>
@@ -262,18 +267,20 @@
 
         <div class="verify" id="verify">
           <h3>SHA-256 校验值</h3>
-          <p class="muted">下载后可对照以下值确认文件完整。PowerShell：<code>Get-FileHash .\FlashGamer-0.3.1-setup.exe -Algorithm SHA256</code></p>
+          <p class="muted">下载后可对照以下值确认文件完整。PowerShell：<code>Get-FileHash .\FlashGamer-0.3.2-setup.exe -Algorithm SHA256</code></p>
           <div class="hash-row">
             <span class="hash-label">安装版</span>
-            <code class="hash" data-hash="setup">811bec9778a3f0c99889b799d845a60552dff23e14d16a6ea98eb8fe4c1a1445</code>
+            <code class="hash" data-hash="setup">c56caa274c612162536537971ef69be8fb3f4d0acabd0bfd76721ac51de2a06c</code>
             <button class="copy-btn" type="button" data-copy="setup">复制</button>
           </div>
           <div class="hash-row">
             <span class="hash-label">免安装版</span>
-            <code class="hash" data-hash="portable">88be3781d954555c364d793ab4304b2ad20777b17ced29065decb47fec9ddc08</code>
+            <code class="hash" data-hash="portable">ea00dda573efa1ad2356afb68113d81c8807385b7c9fe6f1f18227fa9f9ffb47</code>
             <button class="copy-btn" type="button" data-copy="portable">复制</button>
           </div>
         </div>
+
+        <p class="muted small">安装版与免安装版都带软件内更新：启动后自动检查，也可以点主界面左下角的「检查更新」。</p>
 
         <p class="disclaimer">Flash Gamer 只提供播放工具，不包含任何游戏文件。游戏版权归原作者与平台所有，请仅用于个人离线游玩。</p>
       </div>

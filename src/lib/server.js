@@ -183,7 +183,9 @@ async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTempla
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
     'Access-Control-Allow-Headers': '*',
-    'Access-Control-Expose-Headers': '*'
+    'Access-Control-Expose-Headers': '*',
+    'Access-Control-Allow-Private-Network': 'true',
+    'Cross-Origin-Resource-Policy': 'cross-origin'
   };
 
   const server = http.createServer(async (req, res) => {
@@ -344,8 +346,13 @@ async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTempla
       });
     }
 
-    // ctrl_mo_v5.swf 由 Ruffle 以 CORS 方式拉取并重定向到本地，请求本身不带页面 Cookie
-    if (!hasAuth(req) && !pathname.startsWith('/vendor/4399/')) return send(res, 403, 'forbidden');
+    // 网页浏览时 Ruffle 从 https 页面跨域拉取本地 ruffle 内核与 4399 控件，请求不带页面 Cookie
+    const publicVendor = pathname.startsWith('/vendor/4399/') || pathname.startsWith('/vendor/ruffle/');
+    if (req.method === 'OPTIONS' && publicVendor) {
+      res.writeHead(204, CORS);
+      return res.end();
+    }
+    if (!hasAuth(req) && !publicVendor) return send(res, 403, 'forbidden');
 
     if (pathname.startsWith('/assets/')) {
       const rel = pathname.slice('/assets/'.length);
@@ -361,7 +368,7 @@ async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTempla
       if (!file.startsWith(vendorDir)) return send(res, 403, 'forbidden');
       if (!fs.existsSync(file)) return send(res, 404, 'not found');
       const type = file.endsWith('.wasm') ? 'application/wasm' : mimeFor(file);
-      return serveFile(req, res, file, type);
+      return serveFile(req, res, file, type, CORS);
     }
 
     if (pathname.startsWith('/vendor/4399/')) {
@@ -370,7 +377,7 @@ async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTempla
       const file = path.join(root, rel);
       if (!file.startsWith(root)) return send(res, 403, 'forbidden');
       if (!fs.existsSync(file)) return send(res, 404, 'not found');
-      return serveFile(req, res, file, file.endsWith('.swf') ? 'application/x-shockwave-flash' : 'application/octet-stream', { 'Access-Control-Allow-Origin': '*' });
+      return serveFile(req, res, file, file.endsWith('.swf') ? 'application/x-shockwave-flash' : 'application/octet-stream', CORS);
     }
 
     const coverMatch = pathname.match(/^\/cover\/([^/]+)$/);

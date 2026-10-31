@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, dialog, shell, session } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog, shell, session, webContents } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const Library = require('./lib/library');
@@ -7,10 +7,13 @@ const { inspectPage } = require('./lib/inspector');
 const { fetchBinary } = require('./lib/fetcher');
 const { ensureDir, newId, sha256, isSwf, safeFileName, titleFromFileName } = require('./lib/util');
 const { isBlockedUrl } = require('./lib/blocklist');
+const { Updater } = require('./lib/updater');
 
 const APP_NAME = 'Flash Gamer';
 app.setName(APP_NAME);
 
+// 4399 的 Flash 控件和统计接口大量是 http://，HTTPS 页面里会被混合内容拦截
+app.commandLine.appendSwitch('allow-running-insecure-content');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
@@ -64,6 +67,11 @@ const inspectSessions = new Map();
 const gameWindows = new Map();
 let browserWindow = null;
 let browserParsing = false;
+const browserGuestIds = new Set();
+let ruffleSourceCache = null;
+let browserFlashOk = false;
+let updater = null;
+let installerPath = null;
 
 function extFromType(ct) {
   if (/png/i.test(ct)) return '.png';
@@ -262,6 +270,170 @@ function openGameWindow(id) {
   return true;
 }
 
+function loadRuffleSource() {
+  if (ruffleSourceCache !== null) return ruffleSourceCache;
+  try {
+    ruffleSourceCache = fs.readFileSync(path.join(__dirname, '..', 'vendor', 'ruffle', 'ruffle.js'), 'utf8');
+  } catch (e) {
+    ruffleSourceCache = '';
+    console.error('[flashgamer] 读取 ruffle.js 失败:', e.message);
+  }
+  return ruffleSourceCache;
+}
+
+function buildBrowserInjection(port) {
+  const ruffle = loadRuffleSource();
+  if (!ruffle) return '';
+  const config = {
+    publicPath: `http://localhost:${port}/vendor/ruffle/`,
+    autoplay: 'on',
+    unmuteOverlay: 'visible',
+    letterbox: 'on',
+    scale: 'showAll',
+    quality: 'high',
+    warnOnUnsupportedContent: false,
+    logLevel: 'error',
+    openUrlMode: 'deny',
+    allowNetworking: 'all',
+    allowScriptAccess: true,
+    upgradeToHttps: false,
+    allowFullscreen: true,
+    contextMenu: 'on',
+    backgroundColor: '#000000',
+    preloader: true,
+    splashScreen: false,
+    polyfills: true
+  };
+  return [
+    '(() => {',
+    "  if (location.protocol !== 'http:' && location.protocol !== 'https:') return;",
+    "  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') return;",
+    '  const host = location.hostname;',
+    "  const is4399 = /(^|\\.)4399\\.com$/i.test(host) || /(^|\\.)4399pk\\.com$/i.test(host);",
+    '  const apRewrite = function (raw) {',
+    '    try {',
+    "      const u = new URL(String(raw), location.href);",
+    "      if (u.protocol !== 'http:') return raw;",
+    "      if (u.hostname === 'cdn.comment.4399pk.com' && /\\/control\\/ctrl_mo_v5\\.swf$/i.test(u.pathname)) {",
+    `        return 'http://localhost:${port}/vendor/4399/ctrl_mo_v5.swf';`,
+    '      }',
+    "      if (/(^|\\.)(4399\\.com|4399pk\\.com|5054399\\.com)$/i.test(u.hostname)) {",
+    "        u.protocol = 'https:';",
+    '        return u.href;',
+    '      }',
+    '    } catch (e) {}',
+    '    return raw;',
+    '  };',
+    '  if (!window.__apUrlRewrite) {',
+    '    window.__apUrlRewrite = true;',
+    '    const origFetch = window.fetch;',
+    '    if (origFetch) {',
+    '      window.fetch = function (input, init) {',
+    '        try {',
+    "          if (typeof input === 'string') input = apRewrite(input);",
+    '          else if (input && input.url) {',
+    '            const next = apRewrite(input.url);',
+    '            if (next !== input.url) input = new Request(next, input);',
+    '          }',
+    '        } catch (e) {}',
+    '        return origFetch.call(this, input, init);',
+    '      };',
+    '    }',
+    '    const origOpen = XMLHttpRequest.prototype.open;',
+    '    XMLHttpRequest.prototype.open = function (method, url) {',
+    '      const args = Array.prototype.slice.call(arguments);',
+    '      args[1] = apRewrite(url);',
+    '      return origOpen.apply(this, args);',
+    '    };',
+    '  }',
+    '  window.RufflePlayer = window.RufflePlayer || {};',
+    `  window.RufflePlayer.config = Object.assign({}, window.RufflePlayer.config, ${JSON.stringify(config)});`,
+    '  if (is4399) {',
+    '    try {',
+    '      const origGet = Document.prototype.getElementById;',
+    '      Document.prototype.getElementById = function (id) {',
+    "        if (id === 'testplayer1' || id === 'testplayer') {",
+    '          const el = origGet.call(this, id);',
+    '          if (el) { try { el.checkflash = function () { return 1; }; } catch (e) {} return el; }',
+    '          return { checkflash: function () { return 1; } };',
+    '        }',
+    '        return origGet.call(this, id);',
+    '      };',
+    '    } catch (e) {}',
+    '    const gateIds = ["Anti_open", "Anti_mask", "Anti_dialog"];',
+    '    const hideGate = function () {',
+    '      for (const id of gateIds) {',
+    '        const g = document.getElementById(id);',
+    '        if (!g || g === document.documentElement || g === document.body) continue;',
+    "        if (g.style.visibility !== 'hidden') g.style.visibility = 'hidden';",
+    "        if (g.style.pointerEvents !== 'none') g.style.pointerEvents = 'none';",
+    '      }',
+    '    };',
+    '    const watchGate = function () {',
+    '      hideGate();',
+    '      setTimeout(hideGate, 1200);',
+    '      setTimeout(hideGate, 3500);',
+    '      try { new MutationObserver(hideGate).observe(document.documentElement || document, { childList: true, subtree: true }); } catch (e) {}',
+    '    };',
+    "    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watchGate, { once: true });",
+    '    else watchGate();',
+    '    const isPlayPage = /\\/flash\\/\\d+(_\\d+)?\\.htm/i.test(location.pathname);',
+    '    const reveal4399 = function () {',
+    '      try {',
+    '        if (!document.querySelector("ruffle-embed, ruffle-player")) return false;',
+    '        const addiv = document.getElementById("addiv");',
+    '        if (addiv) addiv.style.display = "none";',
+    '        const loadingdiv = document.getElementById("loadingdiv");',
+    '        if (loadingdiv) loadingdiv.style.display = "none";',
+    '        const pusher = document.getElementById("pusher");',
+    '        if (pusher) { pusher.style.display = "none"; pusher.style.height = "0px"; }',
+    '        const swfdiv = document.getElementById("swfdiv");',
+    '        if (swfdiv) swfdiv.style.display = "block";',
+    '        return true;',
+    '      } catch (e) { return false; }',
+    '    };',
+    '    if (isPlayPage) {',
+    '      let tries = 0;',
+    '      const timer = setInterval(function () {',
+    '        reveal4399();',
+    '        if (++tries > 120) clearInterval(timer);',
+    '      }, 250);',
+    '    }',
+    '  }',
+    ruffle,
+    '})();'
+  ].join('\n');
+}
+
+async function ensureBrowserFlash(guest) {
+  if (!guest || guest.isDestroyed()) return false;
+  browserGuestIds.add(guest.id);
+  const injection = buildBrowserInjection(srv.port);
+  if (!injection) return false;
+  try {
+    if (!guest.debugger.isAttached()) {
+      guest.debugger.attach('1.3');
+      await guest.debugger.sendCommand('Page.enable');
+      await guest.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
+        source: injection,
+        runImmediately: true
+      });
+    }
+    console.log('[flashgamer] 网页 Flash 注入完成:', guest.getURL());
+    return true;
+  } catch (e) {
+    console.error('[flashgamer] 网页 Flash 注入失败:', e.message);
+    return false;
+  }
+}
+
+function notifyBrowserFlash(ok) {
+  browserFlashOk = !!ok;
+  if (browserWindow && !browserWindow.isDestroyed()) {
+    browserWindow.webContents.send('browser:flash-ready', { ok: browserFlashOk });
+  }
+}
+
 function openBrowserWindow() {
   if (browserWindow && !browserWindow.isDestroyed()) {
     if (browserWindow.isMinimized()) browserWindow.restore();
@@ -269,6 +441,7 @@ function openBrowserWindow() {
     browserWindow.focus();
     return true;
   }
+  browserFlashOk = false;
   browserWindow = new BrowserWindow({
     width: 1280,
     height: 860,
@@ -293,6 +466,8 @@ function openBrowserWindow() {
   browserWindow.on('closed', () => { browserWindow = null; });
   browserWindow.webContents.on('did-attach-webview', (_event, guest) => {
     attachEditMenu(guest, browserWindow);
+    browserGuestIds.add(guest.id);
+    guest.once('destroyed', () => browserGuestIds.delete(guest.id));
     // 弹窗在当前网页视图里打开，保留地址栏和“解析此页”；必须延后一帧再导航，
     // 在 window-open 回调里同步 loadURL 会把宿主窗口一起带崩。
     guest.setWindowOpenHandler(({ url }) => {
@@ -302,6 +477,23 @@ function openBrowserWindow() {
         });
       }
       return { action: 'deny' };
+    });
+    // 先让 guest 停在 about:blank，再挂调试器。刚创建就 attach 会把网络服务带崩。
+    setImmediate(async () => {
+      try {
+        if (!guest.isDestroyed()) await guest.loadURL('about:blank');
+      } catch {}
+      await new Promise((r) => setTimeout(r, 120));
+      notifyBrowserFlash(await ensureBrowserFlash(guest));
+    });
+    // 渲染进程崩溃或页面在注入前已跳转时，补挂一次并重载当前页
+    guest.on('did-navigate', async () => {
+      if (guest.isDestroyed() || guest.debugger.isAttached()) return;
+      const url = guest.getURL();
+      if (!/^https?:/i.test(url)) return;
+      if (await ensureBrowserFlash(guest)) {
+        try { guest.reload(); } catch {}
+      }
     });
   });
   browserWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -322,6 +514,10 @@ function isPlayerContext(details) {
     if (!w.isDestroyed() && id === w.webContents.id) return true;
   }
   return false;
+}
+
+function isBrowserGuestContext(details) {
+  return !!details.webContentsId && browserGuestIds.has(details.webContentsId);
 }
 
 async function registerIpc() {
@@ -364,8 +560,29 @@ async function registerIpc() {
 
   ipcMain.handle('browser:open', () => openBrowserWindow());
 
-  ipcMain.handle('browser:parse', async (_e, pageUrl) => {
-    if (!/^https?:/i.test(String(pageUrl || ''))) throw new Error('当前不是网页地址');
+  ipcMain.handle('browser:flashState', () => ({ ready: browserFlashOk }));
+
+  ipcMain.handle('update:version', () => ({ version: app.getVersion() }));
+
+  ipcMain.handle('update:check', () => updater.check(app.getVersion()));
+
+  ipcMain.handle('update:download', async () => {
+    const res = await updater.download((p) => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('update:progress', p);
+    });
+    installerPath = res.path;
+    return res;
+  });
+
+  ipcMain.handle('update:install', async () => {
+    if (!installerPath || !fs.existsSync(installerPath)) throw new Error('更新包不存在，请重新下载');
+    const err = await shell.openPath(installerPath);
+    if (err) throw new Error(err);
+    setTimeout(() => { try { app.quit(); } catch {} }, 1200);
+    return true;
+  });
+
+  ipcMain.handle('browser:parse', async (_e, pageUrl) => {    if (!/^https?:/i.test(String(pageUrl || ''))) throw new Error('当前不是网页地址');
     if (browserParsing) throw new Error('正在解析上一个页面，请稍候');
     browserParsing = true;
     const progress = (m) => {
@@ -601,6 +818,184 @@ async function smoke() {
     }
   }
 
+  if (process.env.AP_SMOKE_BROWSER_FLASH === '1') {
+    try {
+      if (!browserWindow || browserWindow.isDestroyed()) openBrowserWindow();
+      await new Promise((r) => setTimeout(r, 4500));
+      const guest = webContents.getAllWebContents().find((w) => w.getType() === 'webview');
+      result.browserGuest = guest ? { id: guest.id, url: guest.getURL() } : null;
+      if (!guest) throw new Error('webview guest 未创建');
+      const guestLogs = [];
+      guest.on('console-message', (_e, level, message, line, sourceId) => guestLogs.push({ level, message, line, sourceId }));
+      result.flashConsole = guestLogs;
+      const target = process.env.AP_SMOKE_BROWSER_FLASH_URL || 'https://www.4399.com/flash/10802_1.htm';
+      await guest.loadURL(target);
+      await new Promise((r) => setTimeout(r, Number(process.env.AP_SMOKE_FLASH_WAIT) || 22000));
+      const readFlash = () => guest.executeJavaScript(`(() => {
+        const embeds = [...document.querySelectorAll('ruffle-embed, ruffle-player')];
+        const meta = embeds.map((e) => e.metadata ? { w: e.metadata.width, h: e.metadata.height, frames: e.metadata.numFrames, rate: e.metadata.frameRate, swf: e.metadata.swfFileName || '' } : null);
+        const gate = document.getElementById('Anti_open');
+        return {
+          href: location.href,
+          title: document.title,
+          embeds: embeds.length,
+          meta,
+          gate: gate ? getComputedStyle(gate).visibility : null,
+          ruffle: !!window.RufflePlayer,
+          csp: !!document.querySelector('meta[http-equiv="Content-Security-Policy" i]')
+        };
+      })()`);
+      result.flash = await readFlash();
+      if (process.env.AP_SMOKE_FLASH_DOM === '1') {
+        result.flashDom = await guest.executeJavaScript(`(() => {
+          const out = { texts: [], divs: [] };
+          document.querySelectorAll('body *').forEach((el) => {
+            const t = el.childElementCount === 0 ? (el.textContent || '').trim() : '';
+            if (t.includes('健康游戏忠告') || t.includes('适龄')) out.texts.push({ tag: el.tagName, id: el.id, cls: String(el.className || '').slice(0, 40), text: t.slice(0, 60) });
+          });
+          ['addiv', 'loadingdiv', 'swfdiv', 'gamebox', 'game'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (!el) { out.divs.push({ id, missing: true }); return; }
+            const r = el.getBoundingClientRect();
+            const s = getComputedStyle(el);
+            out.divs.push({ id, display: s.display, z: s.zIndex, rect: [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)], text: (el.innerText || '').slice(0, 60).replace(/\\s+/g, ' '), html: el.innerHTML.slice(0, 160) });
+          });
+          return out;
+        })()`);
+      }
+      try {
+        result.frames = [];
+        for (const f of guest.mainFrame.framesInSubtree) {
+          try {
+            const info = await f.executeJavaScript(`(() => {
+              const embeds = [...document.querySelectorAll('ruffle-embed, ruffle-player')];
+              return {
+                href: location.href,
+                embeds: embeds.length,
+                meta: embeds.map((e) => e.metadata ? { w: e.metadata.width, h: e.metadata.height, frames: e.metadata.numFrames, rate: e.metadata.frameRate } : null),
+                ruffle: !!window.RufflePlayer
+              };
+            })()`);
+            result.frames.push({ url: f.url, name: f.name, info });
+          } catch (e) {
+            result.frames.push({ url: f.url, name: f.name, error: String(e.message || e).slice(0, 200) });
+          }
+        }
+      } catch (e) { result.framesError = String(e.message || e); }
+      try {
+        const img = await browserWindow.capturePage();
+        const file = path.join(DATA_DIR, 'smoke-browser-flash.png');
+        fs.writeFileSync(file, img.toPNG());
+        result.browserFlashShot = file;
+      } catch (e) { result.browserFlashShotError = String(e.message || e); }
+      if (process.env.AP_SMOKE_FLASH_DEBUG === '1') {
+        result.overlays = await guest.executeJavaScript(`(() => {
+          const out = [];
+          document.querySelectorAll('body *').forEach((el) => {
+            const s = getComputedStyle(el);
+            if ((s.position === 'fixed' || s.position === 'absolute') && s.display !== 'none' && s.visibility !== 'hidden' && Number(s.zIndex) > 500) {
+              const r = el.getBoundingClientRect();
+              if (r.width * r.height > 40000) out.push({ id: el.id, cls: String(el.className || '').slice(0, 60), z: s.zIndex, pos: s.position, bg: s.backgroundColor, op: s.opacity, text: (el.innerText || '').slice(0, 50).replace(/\\s+/g, ' ') });
+            }
+          });
+          return out.slice(0, 20);
+        })()`);
+      }
+      if (process.env.AP_SMOKE_FLASH_CLICK === '1') {
+        const navs = [];
+        const navHandler = (_e, url) => navs.push(url);
+        guest.on('did-navigate', navHandler);
+        if (process.env.AP_SMOKE_FLASH_CLICK_TEXT) {
+          const text = JSON.stringify(process.env.AP_SMOKE_FLASH_CLICK_TEXT);
+          result.flashClickText = await guest.executeJavaScript(`(() => {
+            const want = ${text};
+            const els = [...document.querySelectorAll('a, button, div, span')].filter((el) => el.textContent.trim() === want && el.offsetParent);
+            const el = els[els.length - 1];
+            if (!el) return { clicked: false, count: els.length };
+            el.click();
+            return { clicked: true, tag: el.tagName, id: el.id, cls: String(el.className).slice(0, 50), count: els.length };
+          })()`);
+        }
+        const xySpec = process.env.AP_SMOKE_FLASH_CLICK_XY;
+        const points = (xySpec === undefined ? '560,450;560,690;900,730' : xySpec)
+          .split(';')
+          .map((p) => p.split(',').map(Number))
+          .filter((p) => p.length === 2 && p.every(Number.isFinite));
+        for (const [x, y] of points) {
+          if (process.env.AP_SMOKE_FLASH_CDP === '1') {
+            await guest.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+            await guest.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+            await guest.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+          } else {
+            guest.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 });
+            guest.sendInputEvent({ type: 'mouseUp', x, y, button: 'left', clickCount: 1 });
+          }
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+        await new Promise((r) => setTimeout(r, Number(process.env.AP_SMOKE_FLASH_CLICK_WAIT) || 10000));
+        guest.removeListener('did-navigate', navHandler);
+        result.flashNavs = navs;
+        result.flashAfterClick = await readFlash();
+        result.overlaysAfterClick = await guest.executeJavaScript(`(() => {
+          const out = [];
+          document.querySelectorAll('body *').forEach((el) => {
+            const s = getComputedStyle(el);
+            if ((s.position === 'fixed' || s.position === 'absolute') && s.display !== 'none' && s.visibility !== 'hidden' && Number(s.zIndex) > 500) {
+              const r = el.getBoundingClientRect();
+              if (r.width * r.height > 40000) out.push({ id: el.id, cls: String(el.className || '').slice(0, 60), z: s.zIndex, bg: s.backgroundColor, text: (el.innerText || '').slice(0, 50).replace(/\\s+/g, ' ') });
+            }
+          });
+          return out.slice(0, 20);
+        })()`);
+      }
+      try {
+        const img = await browserWindow.capturePage();
+        const file = path.join(DATA_DIR, 'smoke-browser-flash-after.png');
+        fs.writeFileSync(file, img.toPNG());
+        result.browserFlashAfterShot = file;
+      } catch (e) { result.browserFlashAfterShotError = String(e.message || e); }
+    } catch (e) {
+      result.browserFlashError = String(e.stack || e);
+    }
+  }
+
+  if (process.env.AP_SMOKE_UPDATE === '1') {
+    try {
+      const waitFor = async (expr, timeout = 20000) => {
+        const start = Date.now();
+        while (Date.now() - start < timeout) {
+          if (await mainWindow.webContents.executeJavaScript(expr)) return true;
+          await new Promise((r) => setTimeout(r, 300));
+        }
+        return false;
+      };
+      const readUpdate = () => mainWindow.webContents.executeJavaScript(`(() => ({
+        modal: !document.getElementById('updateModal').classList.contains('hidden'),
+        title: document.getElementById('updateTitle').textContent,
+        meta: document.getElementById('updateMeta').textContent,
+        notes: document.getElementById('updateNotes').textContent,
+        state: document.getElementById('updateState').textContent,
+        action: document.getElementById('btnUpdateAction').textContent,
+        button: document.getElementById('btnUpdate').textContent,
+        progress: document.getElementById('updateProgressBar').style.width
+      }))()`);
+      await mainWindow.webContents.executeJavaScript(`document.getElementById('btnUpdate').click()`);
+      result.updateModalOpened = await waitFor(`!document.getElementById('updateModal').classList.contains('hidden')`);
+      result.updateCheck = await readUpdate();
+      await mainWindow.webContents.executeJavaScript(`document.getElementById('btnUpdateAction').click()`);
+      result.updateDownloaded = await waitFor(`document.getElementById('btnUpdateAction').textContent === '立即安装' || document.getElementById('updateState').textContent.startsWith('下载失败')`, 60000);
+      result.updateAfter = await readUpdate();
+      try {
+        const img = await mainWindow.capturePage();
+        const file = path.join(DATA_DIR, 'smoke-update.png');
+        fs.writeFileSync(file, img.toPNG());
+        result.updateShot = file;
+      } catch (e) { result.updateShotError = String(e.message || e); }
+    } catch (e) {
+      result.updateError = String(e.stack || e);
+    }
+  }
+
   result.shots = shots;
   fs.writeFileSync(out, JSON.stringify(result, null, 2));
   console.log('SMOKE_RESULT', out);
@@ -617,6 +1012,12 @@ if (!gotLock) {
 
   app.whenReady().then(async () => {
     lib = new Library(DATA_DIR);
+    // 更新检查独立会话：跟随系统代理，不受浏览器代理与请求头注入影响
+    const updateSession = session.fromPartition('flash-gamer-updater');
+    updater = new Updater({
+      dataDir: DATA_DIR,
+      fetch: (url, init) => updateSession.fetch(url, init)
+    });
     srv = await createServer({
       dataDir: DATA_DIR,
       lib,
@@ -672,16 +1073,32 @@ if (!gotLock) {
     // Ruffle 用 fetch 取跨域素材，HTTPS 请求不经过本地代理，需要补 CORS 头
     session.defaultSession.webRequest.onHeadersReceived({ urls: ['*://*/*'] }, (details, callback) => {
       const headers = { ...(details.responseHeaders || {}) };
-      if (!/^http:\/\/(127\.0\.0\.1|localhost)/i.test(details.url) && isPlayerContext(details)) {
+      const webPage = isPlayerContext(details) || isBrowserGuestContext(details);
+      if (!/^http:\/\/(127\.0\.0\.1|localhost)/i.test(details.url) && webPage) {
         headers['Access-Control-Allow-Origin'] = ['*'];
         headers['Access-Control-Allow-Headers'] = ['*'];
         headers['Access-Control-Allow-Methods'] = ['GET, POST, OPTIONS'];
+        headers['Access-Control-Allow-Private-Network'] = ['true'];
       }
       callback({ responseHeaders: headers });
     });
 
     createWindow();
-    mainWindow.webContents.once('did-finish-load', () => { smoke().catch((e) => console.error('smoke failed', e)); });
+    mainWindow.webContents.once('did-finish-load', () => {
+      smoke().catch((e) => console.error('smoke failed', e));
+      if (!process.env.AP_SMOKE && process.env.AP_UPDATE_DISABLE !== '1') {
+        setTimeout(async () => {
+          try {
+            const r = await updater.check(app.getVersion());
+            if (r.available && mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('update:available', r);
+            }
+          } catch (e) {
+            console.log('[update] 检查失败', e.message);
+          }
+        }, 6000);
+      }
+    });
   });
 
   app.on('window-all-closed', () => { app.quit(); });

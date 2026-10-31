@@ -210,6 +210,29 @@ button:disabled { opacity: .45; cursor: default; }
   color: #4b5563;
 }
 
+.foot-right { display: flex; align-items: center; gap: 14px; }
+
+.update-btn { width: 100%; margin-top: 8px; }
+.update-btn.has-update { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-dark); }
+
+.update-card { width: 560px; }
+.update-notes {
+  max-height: 220px; overflow-y: auto;
+  white-space: pre-line;
+  font-size: 13px; line-height: 1.7;
+  background: #f7f8fa;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  color: #3b4250;
+}
+.update-notes:empty { display: none; }
+.update-progress { height: 8px; background: #e9edf2; border-radius: 999px; overflow: hidden; margin-bottom: 10px; }
+.update-progress.hidden { display: none; }
+.update-progress > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.update-state { min-height: 18px; font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+
 .muted { color: var(--muted); }
 
 .modal {

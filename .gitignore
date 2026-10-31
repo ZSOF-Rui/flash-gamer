@@ -5,3 +5,5 @@ release/
 *.log
 vibe_images/
 *.png.tmp
+site/dist/
+site/.Flash Gamer.qoder.site

@@ -40,11 +40,34 @@
     } catch {}
   }
 
+  let viewReady = false;
+  let flashReady = false;
+  let started = false;
+
+  function startBrowse() {
+    if (started || !viewReady || !flashReady) return;
+    started = true;
+    let last = '';
+    try { last = localStorage.getItem('flashGamer.lastUrl') || ''; } catch {}
+    const target = last && /^https?:/i.test(last) ? last : 'https://www.4399.com/';
+    addr.value = target;
+    try {
+      view.loadURL(target).catch((e) => setStatus(`打开失败：${e.message || e}`));
+    } catch (e) {
+      setStatus(`打开失败：${e.message || e}`);
+    }
+  }
+
   function go(raw) {
     const url = normalize(raw);
     if (!url) return;
+    started = true;
     addr.value = url;
-    view.loadURL(url).catch((e) => setStatus(`打开失败：${e.message || e}`));
+    try {
+      view.loadURL(url).catch((e) => setStatus(`打开失败：${e.message || e}`));
+    } catch (e) {
+      setStatus(`打开失败：${e.message || e}`);
+    }
   }
 
   $('#go').onclick = () => go(addr.value);
@@ -111,13 +134,31 @@
     if (msg && msg.type === 'log' && msg.text) setStatus(msg.text);
   });
 
-  try {
-    const last = localStorage.getItem('flashGamer.lastUrl');
-    if (last && /^https?:/i.test(last)) view.setAttribute('src', last);
-  } catch {}
+  window.browserApi.onFlashReady((state) => {
+    flashReady = true;
+    if (state && state.ok) setStatus('Flash 内核已就绪，网页里的 SWF 会直接用 Ruffle 播放。');
+    else setStatus('Flash 内核注入失败，网页仍可正常浏览。');
+    startBrowse();
+  });
+
+  window.browserApi.flashState().then((state) => {
+    if (state && state.ready) {
+      flashReady = true;
+      startBrowse();
+    }
+  }).catch(() => {});
+
+  setTimeout(() => {
+    if (flashReady) return;
+    flashReady = true;
+    setStatus('等待 Flash 内核超时，网页仍可正常浏览。');
+    startBrowse();
+  }, 7000);
 
   view.addEventListener('dom-ready', () => {
+    viewReady = true;
     try { syncAddr(view.getURL()); } catch {}
     updateNav();
+    startBrowse();
   });
 })();
