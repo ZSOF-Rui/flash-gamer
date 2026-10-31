@@ -25,8 +25,8 @@
 ## 2. 版本与分支
 
 ```
-main    33f6328  Flash Gamer v0.3.0（无浏览器，含 4399 加壳修复）
-dev     030a3b3  Flash Gamer v0.3.1-dev（浏览器 + 登录共享 + 同一加壳修复）
+main    74e7760  Flash Gamer v0.3.0（无浏览器，含 4399 加壳修复）
+dev     b588153  Flash Gamer v0.3.1-dev（浏览器 + 登录共享 + 同一加壳修复）
 v0.1.0  c773483  App Professor v0.1.0（只读归档）
 ```
 
