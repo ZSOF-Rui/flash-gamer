@@ -9,8 +9,9 @@ Flash 小游戏离线馆。把 4399 / 7k7k 的 Flash 游戏页面粘贴进来，
 | 版本 | 分支 | 内容 |
 | --- | --- | --- |
 | v0.1 | 归档于 `release/AppProfessor*` | App Professor 初始版，原样保留 |
-| v0.2 | `main` | Flash Gamer：改名、新图标、独立游戏窗口、后台运行 |
-| v0.3 | `dev` | 在 v0.2 基础上加网页浏览与在线登录 |
+| v0.2 | `release/FlashGamer-0.2.0*` | 改名、新图标、独立游戏窗口、后台运行（历史版本） |
+| v0.3.0 | `main` | 无浏览器版；修复 4399 加壳游戏（抽出内嵌 SWF 顶播） |
+| v0.3.1-dev | `dev` | 在 v0.3.0 基础上加网页浏览与在线登录 |
 
 ## 用法
 
@@ -28,6 +29,7 @@ Flash 小游戏离线馆。把 4399 / 7k7k 的 Flash 游戏页面粘贴进来，
 - 播放器只加载 SWF 本体，不打开游戏网页，页面上的弹窗、悬浮广告、统计脚本都不会执行。
 - 抓取阶段会拦截广告与统计域名（`stat.api.4399.com`、`stat.7k7k.com`、MochiAds 等），但放行游戏前置加载器必需的 4399 控制器 SWF 与版本 XML。
 - 4399 的 `cell.swf` 广告占位壳会被识别并跳过；被声明为 SWF、实际是 HTML 包装页的地址会自动跟进去取真正的 SWF。
+- 部分 4399 游戏外面套了一层加载壳，真正的游戏以 `DefineBinaryData` 内嵌，并被壳用 `Loader` 载入。内层游戏会检测“是否被加壳运行”，命中就拒绝启动；本程序会把内嵌游戏抽出来（`items/<id>/play.swf`）作为顶层影片播放，壳的反加壳检查因此不成立。
 - 同一个 SWF 按 SHA-256 去重，重复解析或重复导入不会产生两份文件。
 - 安装包只包含 Electron、Ruffle 和本程序，没有捆绑安装器、没有浏览器主页修改、没有遥测上报。
 
@@ -35,7 +37,7 @@ Flash 小游戏离线馆。把 4399 / 7k7k 的 Flash 游戏页面粘贴进来，
 
 - [Electron](https://www.electronjs.org/)：桌面壳与网络抓取。
 - [Ruffle](https://ruffle.rs/)：Rust 编写的开源 Flash 模拟器，运行在 WebAssembly 上，不依赖 Adobe Flash Player（使用 0.8.0 nightly 构建）。
-- 本地 HTTP 服务（默认 `127.0.0.1:43199`）：提供播放器页面、SWF 镜像与资源缓存。
+- 本地 HTTP 服务（`localhost:43199`）：提供播放器页面、SWF 镜像与资源缓存。页面统一走 `localhost`，4399 壳才会跳过远程服务连接。
 
 Ruffle 的兼容性覆盖大多数 Flash 8 / AS2 游戏；依赖冷门 AS3 特性的内容仍可能无法运行。
 
@@ -63,7 +65,7 @@ ELECTRON_ZIP=$(ls "$LOCALAPPDATA"/electron/Cache/*/electron-v45.1.0-win32-x64.zi
 "$LOCALAPPDATA/electron-builder/Cache/7zip@1.0.0/7zip-win-x64-1nrf7/bin/7za.exe" x -y "$ELECTRON_ZIP" -o release/electron-dist-45.1.0
 
 npx electron-builder --dir --win --x64 \
-  --config.directories.output=release/build-0.2.0-dir \
+  --config.directories.output=release/build-0.3.0-dir \
   --config.electronDist=release/electron-dist-45.1.0
 ```
 
@@ -71,11 +73,12 @@ npx electron-builder --dir --win --x64 \
 
 本仓库同时提供已经组装好并实测过的绿色版：
 
+- `release/FlashGamer-0.3.0/`：v0.3.0 解压即用目录（无浏览器），双击 `Flash Gamer.exe` 运行。
+- `release/FlashGamer-0.3.0-portable.zip`：v0.3.0 压缩包。
+- `release/FlashGamer-0.3.1-dev/`：v0.3.1-dev 解压即用目录（带网页浏览）。
+- `release/FlashGamer-0.3.1-dev-portable.zip`：v0.3.1-dev 压缩包。
 - `release/AppProfessor/`、`release/AppProfessor-0.1.0-portable.zip`：v0.1，原样保留。
-- `release/FlashGamer-0.2.0/`：v0.2 解压即用目录，双击 `Flash Gamer.exe` 运行。
-- `release/FlashGamer-0.2.0-portable.zip`：v0.2 压缩包。
-- `release/FlashGamer-0.3.0-dev/`：v0.3（dev 分支，带网页浏览）。
-- `release/FlashGamer-0.3.0-dev-portable.zip`：v0.3 压缩包。
+- `release/FlashGamer-0.2.0*`、`release/FlashGamer-0.3.0-dev*`：历史版本，未覆盖。
 
 ## 数据位置
 

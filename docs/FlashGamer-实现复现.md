@@ -1,4 +1,4 @@
-# Flash Gamer 实现复现手册（v0.2 / v0.3-dev）
+# Flash Gamer 实现复现手册（v0.3.0 / v0.3.1-dev）
 
 本文按“需求 → 结论 → 实现 → 复现命令 → 验证证据 → 限制”的顺序记录本项目的全部改动。  
 目标读者是拿到源码后想把每一处行为重新做出来、或想定位某个游戏为什么不能玩的人。
@@ -12,7 +12,7 @@
 | R1 | 应用名改成 Flash Gamer | 窗口标题、程序名、安装包名、开始菜单名、数据目录名均为 Flash Gamer |
 | R2 | 重新设计 logo | 新图标出现在 exe、窗口、主界面左上角；旧 AP 图标不再出现 |
 | R3 | 加入网页功能，有的游戏要网页在线登录，有的网站要在线浏览 | 独立浏览器窗口可打开任意 http/https 页面；登录后 Cookie 能被游戏请求复用 |
-| R4 | 4399 还是有部分加入库失效 | 给出的两个失败案例：40779 能解析并游玩；205551 的 `allowScriptAccess` 报错消失 |
+| R4 | 4399 还是有部分加入库失效 | 40779 能解析并游玩；205551 不再报 `allowScriptAccess`，且能穿过壳的反加壳检查进入游戏 |
 | R5 | 后台运行游戏不被其他操作打断 | 游戏可开在独立窗口，主窗口继续解析/浏览，游戏不降频、不暂停 |
 | R6 | 大量游戏同时加载出来两个文件但是一个都没用，做个问题确定一下 | 找出“两个候选都无效”的根因并修掉；重复解析不再产生重复条目 |
 | R7 | 新版本放 dev 分支，没有浏览器功能的放本分支，不覆盖旧版/第一版 | `main`=v0.2 无浏览器；`dev`=v0.3 带浏览器；v0.1 产物原样保留 |
@@ -25,16 +25,18 @@
 ## 2. 版本与分支
 
 ```
-main    e2208c6  Flash Gamer v0.2.0（无浏览器）
-dev     a097e04  Flash Gamer v0.3.0-dev（浏览器 + 登录共享）
+main    33f6328  Flash Gamer v0.3.0（无浏览器，含 4399 加壳修复）
+dev     030a3b3  Flash Gamer v0.3.1-dev（浏览器 + 登录共享 + 同一加壳修复）
 v0.1.0  c773483  App Professor v0.1.0（只读归档）
 ```
+
+历史版本 v0.2.0（main 的 e2208c6）与 v0.3.0-dev（dev 的 ca0c608）的产物原样保留，不覆盖。
 
 - v0.1 的源码快照取自 `release/AppProfessor/resources/app`，单独提交在 `v0.1-app-professor` 分支并打 `v0.1.0` 标签。
 - **v0.1 的任何运行产物都没有被覆盖**：
   - `release/AppProfessor/`
   - `release/AppProfessor-0.1.0-portable.zip`（sha256 不变）
-- v0.2/v0.3 的打包输出使用独立的临时目录（`release/build-0.2.0-dir`、`release/build-0.3.0-dev-dir`），最后整理成 `release/FlashGamer-0.2.0/`、`release/FlashGamer-0.3.0-dev/` 及对应 zip。
+- 每次打包使用独立的临时目录（本次为 `release/build-0.3.0-dir`、`release/build-0.3.1-dev-dir`），最后整理成 `release/FlashGamer-<version>/` 及对应 zip；历史版本的目录与 zip 保持不变。
 
 ---
 
@@ -50,7 +52,7 @@ v0.1.0  c773483  App Professor v0.1.0（只读归档）
 └───────────────┬───────────────────────────────────────────────────────────────────┘
                 │ IPC (preload.js / browser-preload.js)
 ┌───────────────▼────────────┐    ┌──────────────────────────────────────────────┐
-│ 渲染层 renderer/            │    │ 本地 HTTP 服务 127.0.0.1:PORT (src/lib/server.js) │
+│ 渲染层 renderer/            │    │ 本地 HTTP 服务 localhost:PORT (src/lib/server.js)  │
 │  index.html  主界面         │    │  /            主界面（ap_session Cookie 鉴权）     │
 │  player.html 播放页         │    │  /play/:id    播放页（Ruffle 启动参数注入）        │
 │  browser.html 浏览窗口(dev) │    │  /m/:id/...   SWF 镜像代理 + 资源缓存             │
@@ -65,7 +67,8 @@ v0.1.0  c773483  App Professor v0.1.0（只读归档）
 FlashGamerData/
   library.json            游戏条目（含 sha256、flashvars、referer、cookie）
   items/<id>/
-    main.swf              游戏本体
+    main.swf              游戏本体（原始抓取结果）
+    play.swf              加壳游戏抽出的内层 SWF；存在时优先播放
     cover.jpg             封面
     cache/<sha1>          运行时抓到的附加资源（含 .meta.json）
   tmp/                    Inspector 临时下载目录
@@ -164,9 +167,15 @@ function isAdSwf(url) {
 
 验证：候选只剩 `main.swf`，`via=wrapper`，进入游戏后显示标题页「3D极速飙车 天亮就出发…」。
 
-#### 4.3.2 205551：加载壳要求 `allowScriptAccess` flashvar
+#### 4.3.2 205551：三层拦截，逐层拆解
 
-现象：`https://www.4399.com/flash/205551_4.htm`（死神VS火影3.3，69 MB）能抓到 `main.swf`，但播放时黑屏并显示「• allowScriptAcc…」。
+现象按排查顺序出现过三种：
+
+1. 直接播放抓到的 `main.swf`（69 MB CWS）时，画面只显示「• allowScriptAcc…」；
+2. 补上 flashvars 后报错消失，但停在 4399 加载页，日志出现 `real size: 69431196`；
+3. 反编译后确认：外层是加载壳，真实游戏以 `DefineBinaryData` 内嵌，外层用 `Loader` 载入；内嵌游戏自带同一套 4399 壳代码，检测到 `loaderInfo.loader != null` 且页面不在 4399 域，弹出「不允许加壳运行 / No running in a loader.」并中止。
+
+##### 第一层：播放器参数校验
 
 逆向过程（REA）：
 
@@ -181,8 +190,9 @@ function isAdSwf(url) {
    com.sh.m_sh_manager / com.green.net.text_bin_loader / swf_loader / BleachVSNaruto_3_3
    ```
    说明壳读取的是 **`loaderInfo.parameters`（flashvars）**，而不是 `<param name="allowScriptAccess">` 嵌入属性。
-3. Ruffle 的 `allowScriptAccess` 配置只影响 `ExternalInterface.available()`，不会写入 `loaderInfo.parameters`。
-4. 对比网络日志，壳还会请求：
+3. 壳还会通过 ExternalInterface 找到播放器元素，按 `nodeName` 区分 OBJECT/EMBED，再用 `getAttribute` 读 `allowScriptAccess`/`allowNetworking` 与参数表比对；不匹配就 `dispose()`，并用字符串 `setTimeout` 执行 `fl_obj.cloneNode()` + `replaceChild` 重新挂载播放器。
+4. Ruffle 的 `allowScriptAccess` 配置只影响 `ExternalInterface.available()`，不会写入 `loaderInfo.parameters`，`<ruffle-player>` 也没有这些属性。
+5. 对比网络日志，壳还会请求：
    - `https://cdn.comment.4399pk.com/control/ctrl_mo_v5.swf`（4399 控制器）
    - `https://cdn.comment.4399pk.com/control/A4399dv_base.swf`
    - `https://stat.api.4399.com/flash_ctrl_version.xml`、`flash_ad_version.xml`
@@ -202,6 +212,31 @@ function mergeFlashvars(item) { return { ...DEFAULT_FLASHVARS, ...(item.flashvar
 ```
 
 ```js
+// src/renderer/player.html：把 <ruffle-player> 伪装成带参数的 EMBED
+player.id = 'flashgame';
+player.setAttribute('name', 'flashgame');
+player.setAttribute('type', 'application/x-shockwave-flash');
+player.setAttribute('allowScriptAccess', 'always');
+player.setAttribute('allowNetworking', 'all');
+player.setAttribute('allowFullScreen', 'true');
+Object.defineProperty(player, 'nodeName', { get: () => 'EMBED', configurable: true });
+Object.defineProperty(player, 'tagName', { get: () => 'EMBED', configurable: true });
+```
+
+```js
+// 壳的克隆替换脚本一旦执行，<ruffle-player> 被换掉后不会再初始化，直接拦截
+var nativeTimeout = window.setTimeout;
+window.setTimeout = function (fn, ms) {
+  if (typeof fn === 'string' && fn.indexOf('fl_obj') !== -1 && fn.indexOf('cloneNode') !== -1) return 0;
+  return nativeTimeout.apply(this, arguments);
+};
+```
+
+- CSP 必须保留 `'unsafe-eval'`（`ExternalInterface.addCallback` 用 `eval` 注册回调），`/play` 页的 nonce CSP 也保留。
+- 本地页面必须用 `localhost` 而不是 `127.0.0.1`：壳用 `location.hostname` 判断 4399 域，只有 localhost 会跳过 `start_remote()`；`127.0.0.1` 会尝试连 4399 远程服务。
+- CORS 注入跳过本地地址的规则同步覆盖 `localhost`，与 `127.0.0.1` 一致。
+
+```js
 // src/lib/blocklist.js：按 URL 放行加载器必需资源，域名仍保持黑名单
 const PRELOADER_ALLOW = [
   /^https?:\/\/cdn\.comment\.4399pk\.com\/control\/[\w.-]+\.swf$/i,
@@ -219,17 +254,63 @@ if (u.hostname === 'cdn.comment.4399pk.com' && /\/control\/ctrl_mo_v5\.swf$/i.te
 
 `vendor/4399/ctrl_mo_v5.swf`（415,361 字节）随包分发；`/vendor/4399/*` 路由免 `ap_session` 鉴权并返回 `Access-Control-Allow-Origin: *`（Ruffle 以 fetch 方式拉取）。
 
-结果与限制：
+##### 第二层：反加壳检测
 
-- 「allowScriptAccess」报错**消失**，壳推进到广告版本检测阶段；
-- 进入游戏阶段后，Ruffle（0.7.1 与 0.8.0-nightly 均）输出：
-  ```
-  Encountered stub: AVM2 flash.display.Loader.load() addChild at the correct time
-  ```
-  画面停留在黑屏。这属于 Ruffle 对该壳 Loader 时序的未实现点，不是应用层能绕过的（详见第 7 节）。
-- 复现验证：`AP_SMOKE=replay` 时 `iframe.allow=true`、无 allowScriptAccess 文本；Ruffle 日志无该报错。
+第一层修好后，壳能走完全部初始化，但内层游戏一启动就调用 `showError`。REA 定位到判定链：
 
-#### 4.3.3 “两个文件但一个都没用”的判定（R6）
+- `ɕ.ȑ`（加载完成回调）中检查 `ǵ.ɐ.Ʌ && !FB.serviceHold["ˢ"] && serviceHold.isReady`；
+- `ǵ.ɐ.Ʌ` 就是 `loaderInfo.loader`（当前影片是被谁加载的）；
+- `ˢ` 来自 `com.sh.Ǽ` 的 4399 主机名白名单，`localhost`/`127.0.0.1` 不在内；
+- 条件成立即调用 `AlertUI` 显示「不允许加壳运行」/「No running in a loader.」并中止；
+- 同一段代码打印的 `real size: 69431196` 取自 `loaderInfo.bytes.length`，说明外层通过 `Loader` 载入的确实是 69,431,196 字节的内层 SWF。
+
+`LoaderProbe` 实验确认：顶层播放时 `loaderInfo.loader` 为 null，只有被 `Loader` 载入时才非空。因此改参数绕不过去，必须改变“谁在顶层播放”。
+
+##### 第三层：抽出内嵌 SWF 顶播
+
+205551 的外层壳把真实游戏以 tag 87（`DefineBinaryData`）内嵌在文件里。写一个最小 SWF 解析器，把内层游戏抽出来作为顶层影片播放，反加壳条件自然不成立：
+
+```js
+// src/lib/swf-embed.js（节选）
+function inflateBody(buf) {
+  if (buf.subarray(0, 3).toString('latin1') === 'FWS') return buf.subarray(8);
+  if (buf.subarray(0, 3).toString('latin1') === 'CWS') return zlib.inflateSync(buf.subarray(8));
+  return null;
+}
+function largestEmbeddedSwf(body) {
+  // 跳过 RECT，遍历标签；code 87 且长度 > 1 MiB，取最大的一段
+  // 校验内嵌数据以 FWS/CWS/ZWS 开头、声明长度与实际相符
+}
+function extractInnerSwf(buf) {
+  const body = inflateBody(buf);
+  // 只处理带 "No running in a loader" 标记的壳，避免误伤普通 SWF
+  if (!body || !body.includes(ANTI_LOADER_MARK)) return null;
+  return largestEmbeddedSwf(body);
+}
+```
+
+服务端在进入播放页前抽取一次并缓存：
+
+```js
+// src/lib/server.js
+await ensureInnerSwf(item);          // /play/:id 之前
+// 抽取结果写入 items/<id>/play.swf，存在且 > 1 MiB 即复用
+// 主 SWF 请求（/m 代理按 origin+pathname 匹配 originalUrl，以及 /file/<id>/main.swf）
+// 命中时改为返回 play.swf
+```
+
+- 抽取幂等：`play.swf` 已存在就不再解析 69 MB 的主文件；
+- 只有带反加壳标记的壳才抽取；40779 的普通 SWF 与已抽取的内层游戏都返回 `null`，不会误伤；
+- 内层游戏作为顶层影片运行，`loaderInfo.loader` 为 null，反加壳检查通过。
+
+结果与复现验证：
+
+- 「allowScriptAccess」报错消失，也没有 Ruffle 的 `Loader.load() addChild` stub 阻塞；
+- 205551 进入标题页与选人界面（`docs/FlashGamer-v0.3.0-205551.png`），打包版首启自动抽取 `play.swf` 69,431,196 B；
+- 40779（`docs/FlashGamer-v0.3.0-40779.png`）与既有游戏回归正常；
+- 旧版文档把黑屏归因于 Ruffle Loader stub，该结论已废弃：真正原因是内层游戏的 4399 反加壳检查。
+
+#### 4.3.4 “两个文件但一个都没用”的判定（R6）
 
 结论：不是队列并发 bug，而是**候选本身无效**：
 
@@ -320,29 +401,29 @@ ELECTRON_ZIP=$(ls "$LOCALAPPDATA"/electron/Cache/*/electron-v45.1.0-win32-x64.zi
 "$LOCALAPPDATA/electron-builder/Cache/7zip@1.0.0/7zip-win-x64-1nrf7/bin/7za.exe" \
   x -y "$ELECTRON_ZIP" -o release/electron-dist-45.1.0
 
-# 1) v0.2（main，无浏览器）
+# 1) v0.3.0（main，无浏览器）
 git checkout main
 unset ELECTRON_RUN_AS_NODE NODE_OPTIONS
 npx electron-builder --dir --win --x64 \
-  --config.directories.output=release/build-0.2.0-dir \
+  --config.directories.output=release/build-0.3.0-dir \
   --config.electronDist=release/electron-dist-45.1.0
 
-# 2) v0.3（dev，浏览器）
+# 2) v0.3.1-dev（dev，浏览器）
 git checkout dev
 npx electron-builder --dir --win --x64 \
-  --config.directories.output=release/build-0.3.0-dev-dir \
+  --config.directories.output=release/build-0.3.1-dev-dir \
   --config.electronDist=release/electron-dist-45.1.0
 ```
 
 产物整理（`default_app.asar` 在运行测试时可能被系统占用而删不掉，直接排除；它只是 Electron 的兜底 app，存在 `app.asar` 时不会加载）：
 
 ```bash
-robocopy "release\build-0.2.0-dir\win-unpacked" "release\FlashGamer-0.2.0" /E /XF default_app.asar
-robocopy "release\build-0.3.0-dev-dir\win-unpacked" "release\FlashGamer-0.3.0-dev" /E /XF default_app.asar
-7za a -tzip -mx=5 release/FlashGamer-0.2.0-portable.zip release/FlashGamer-0.2.0
-7za a -tzip -mx=5 release/FlashGamer-0.3.0-dev-portable.zip release/FlashGamer-0.3.0-dev
-7za t release/FlashGamer-0.2.0-portable.zip
-7za t release/FlashGamer-0.3.0-dev-portable.zip
+robocopy "release\build-0.3.0-dir\win-unpacked" "release\FlashGamer-0.3.0" /E /XF default_app.asar
+robocopy "release\build-0.3.1-dev-dir\win-unpacked" "release\FlashGamer-0.3.1-dev" /E /XF default_app.asar
+7za a -tzip -mx=5 release/FlashGamer-0.3.0-portable.zip release/FlashGamer-0.3.0
+7za a -tzip -mx=5 release/FlashGamer-0.3.1-dev-portable.zip release/FlashGamer-0.3.1-dev
+7za t release/FlashGamer-0.3.0-portable.zip
+7za t release/FlashGamer-0.3.1-dev-portable.zip
 ```
 
 > `package.json` 的 `npm run dist` 仍是标准单文件 portable 目标；在没有文件占用的机器上可直接用。本次交付采用绿色目录 + zip，避免依赖 NSIS 自解压层。
@@ -380,46 +461,48 @@ AP_SMOKE_WAIT=12000 AP_SMOKE_CLICK=1 AP_SMOKE_OFFSCREEN=1 \
 
 | 项目 | 版本 | 方法 | 结果 |
 | --- | --- | --- | --- |
-| 40779 解析（源码） | v0.2/v0.3 | 全流程 smoke | 通过：候选 1 个，`main.swf` 3,474,287 B，`via=wrapper` |
-| 40779 游玩（源码） | v0.2/v0.3 | `AP_SMOKE_CLICK=1` 截图 | 通过：进入「3D极速飙车」标题页 |
-| 40779 解析（打包 exe） | v0.2 | `release/FlashGamer-0.2.0/Flash Gamer.exe` | 通过：同一候选、同一标题，写入 3,474,938 B 缓存 |
-| 40779 游玩（打包 exe） | v0.2/v0.3 | 打包版 replay + 截图 | 通过：640×480、15 fps；`docs/FlashGamer-v0.2-40779.png`、`docs/FlashGamer-v0.3-40779.png` |
-| 205551 解析（打包 exe） | v0.2 | 打包版 full smoke | 通过：`main.swf` 69,072,554 B（65.9 MB），800×600、30 fps |
-| 205551 allowScriptAccess 报错 | v0.2/v0.3 | 回放 smoke + Ruffle 日志 | 通过：报错消失 |
-| 205551 进入游戏 | — | 打包版回放 | 未通过：Ruffle stub `Loader.load() addChild at the correct time`，黑屏 |
-| 独立游戏窗口（打包 exe） | v0.2/v0.3 | `AP_SMOKE_WINDOW=1` | 通过：标题「3D极速飙车 — Flash Gamer」、URL `/play/:id`、Ruffle 元数据 640×480 |
-| 后台运行（实测） | v0.3（打包 exe） | CDP 在游戏页计 rAF，浏览器窗口置前 5 秒 | 通过：rAF 392 → 859（+467 帧），游戏窗口 `hasFocus()=false`，画面循环未停 |
-| 浏览器窗口（打包 exe） | v0.3 | `AP_SMOKE_BROWSER=1` + 截图 | 通过：4399 页面正常渲染，登录弹窗正常（`docs/FlashGamer-v0.3-browser-login.png`） |
-| 浏览器解析入库（打包 exe） | v0.3 | `AP_SMOKE_BROWSER_PARSE=1` | 通过：提示「已加入游戏库：3D极速飙车（3.3 MB，共 1 个候选）」，library 条目 +1 |
-| 去重 | v0.2/v0.3 | 重复解析两次 | 通过：条目数不增 |
-| exe 图标与版本信息 | v0.2/v0.3 | `ExtractAssociatedIcon` + `VersionInfo` | 通过：`ProductName=Flash Gamer`，版本 0.2.0.0 / 0.3.0.0，图标为新 logo |
-| zip 完整性 | v0.2/v0.3 | `7za t` | 通过：两个 zip 均 `Everything is Ok` |
-| v0.1 产物保留 | — | 目录与校验和检查 | 通过：`release/AppProfessor*` 未改动，zip sha256 未变 |
+| 40779 解析（源码） | v0.3.0 | 全流程 smoke | 通过：候选 1 个，`main.swf` 3,474,287 B，`via=wrapper` |
+| 40779 游玩（打包 exe） | v0.2.0/v0.3.0 | 回放 + CDP 截图 | 通过：进入「3D极速飙车」标题页；`docs/FlashGamer-v0.3.0-40779.png` |
+| 205551 解析（打包 exe） | v0.2.0 | 打包版 full smoke | 通过：`main.swf` 69,072,554 B（65.9 MB），800×600、30 fps |
+| 205551 allowScriptAccess 报错 | v0.2.0/v0.3.0 | 回放 + Ruffle 日志 | 通过：报错消失 |
+| 205551 进入游戏（打包 exe） | v0.3.0 | 空数据目录首启 → 自动抽取 `play.swf` → 直接游玩 | 通过：69,431,196 B 内层 SWF，进入选人界面；`docs/FlashGamer-v0.3.0-205551.png` |
+| 内嵌 SWF 抽取器边界 | v0.3.0 | 独立扫描 205551 / 40779 / 已抽取内层 | 通过：只有 205551 命中；40779 与内层游戏返回 null（6 ms / 55 ms） |
+| 双窗口并存 | v0.3.0 | 先开 205551，再开 40779 | 通过：两窗口各自渲染，互不打断 |
+| 独立游戏窗口（打包 exe） | v0.2.0/v0.3.0 | `AP_SMOKE_WINDOW=1` | 通过：标题「3D极速飙车 — Flash Gamer」、URL `/play/:id`、Ruffle 元数据 640×480 |
+| 后台运行（实测） | v0.3.0 | CDP 在游戏页计 rAF，浏览器窗口置前 5 秒 | 通过：rAF 392 → 859（+467 帧），游戏窗口 `hasFocus()=false`，画面循环未停 |
+| 浏览器窗口（打包 exe） | v0.3.1-dev | CDP `openBrowser()` + 截图 | 通过：4399 页面正常渲染；`docs/FlashGamer-v0.3.1-browser.png` |
+| 浏览器登录共享（打包 exe） | v0.3.0-dev | 页面登录弹窗 + 解析入库 | 通过：登录弹窗正常（`docs/FlashGamer-v0.3-browser-login.png`），解析条目 +1 |
+| 去重 | v0.2.0/v0.3.0 | 重复解析两次 | 通过：条目数不增 |
+| exe 图标与版本信息 | v0.3.0/v0.3.1-dev | `VersionInfo` | 通过：`ProductName=Flash Gamer`，版本 0.3.0.0 / 0.3.1.0，图标为新 logo |
+| zip 完整性 | v0.3.0/v0.3.1-dev | `7za t` | 通过：两个 zip 均 `Everything is Ok` |
+| v0.1/v0.2/v0.3.0-dev 产物保留 | — | 目录与校验和检查 | 通过：旧目录与 zip 未改动 |
 
 > 说明：无桌面会话时 `capturePage()` 可能返回 `UnknownVizError` 或旧帧；`AP_SMOKE_OFFSCREEN=1` 是可靠的截图方式。
 
 截图证据：
 
-- 打包版 v0.2 运行 40779：`docs/FlashGamer-v0.2-40779.png`
-- 打包版 v0.3 运行 40779：`docs/FlashGamer-v0.3-40779.png`
-- 打包版 v0.3 浏览器与 4399 登录弹窗：`docs/FlashGamer-v0.3-browser-login.png`
+- 打包版 v0.3.0 运行 205551（选人界面）：`docs/FlashGamer-v0.3.0-205551.png`
+- 打包版 v0.3.0 运行 40779：`docs/FlashGamer-v0.3.0-40779.png`
+- 打包版 v0.3.1-dev 浏览器窗口：`docs/FlashGamer-v0.3.1-browser.png`
+- 历史：`docs/FlashGamer-v0.2-40779.png`、`docs/FlashGamer-v0.3-40779.png`、`docs/FlashGamer-v0.3-browser-login.png`
 
-![v0.2 40779](FlashGamer-v0.2-40779.png)
+![v0.3.0 205551](FlashGamer-v0.3.0-205551.png)
 
-![v0.3 40779](FlashGamer-v0.3-40779.png)
+![v0.3.0 40779](FlashGamer-v0.3.0-40779.png)
 
-![v0.3 浏览器登录](FlashGamer-v0.3-browser-login.png)
+![v0.3.1-dev 浏览器](FlashGamer-v0.3.1-browser.png)
 
 ---
 
 ## 7. 已知限制
 
-1. **205551 类加载壳**：Ruffle 对 `flash.display.Loader.load()` 的“按时 addChild”仍是 stub，壳停在黑屏。两个 Ruffle 版本均复现，说明是模拟器能力问题，不是参数问题。可选路线：等 Ruffle 实现该语义；或在 dev 分支接浏览器 + 4399 网页自身（需要真实 Flash 插件，Chromium 已移除，不可行）；或对壳做二进制 patch（需 FFDec/JPEXS 与 Java，未在本机安装）。
-2. **AS3 兼容性**：Ruffle 对复杂 AS3/Flex 项目覆盖有限，部分游戏能加载但交互异常。
-3. **登录态范围**：Cookie 注入解决了“游戏请求带登录 Cookie”，但有些 4399 接口还要求页面里的 JS 桥（`4399api_*` 回调）。本机用 `Reflect.get` 钩子监听 30 秒未发现壳发起 JS 调用，故未实现桥接；如后续发现调用，可在 `player.html` 里按名称补 `window['4399api_xxx']`。
-4. **HTTPS 证书**：主进程 `onHeadersReceived` 只为播放器上下文补 CORS，不忽略证书错误；某些老站点自签证书会直接失败。
-5. **广告拦截**：域名级黑名单可能误伤同域下的必要接口，遇到“加载卡住”可先用 `AP_OFFLINE` 之外的正常网络复测，并把必要路径加入 `PRELOADER_ALLOW`。
-6. **7k7k**：解析路径与 4399 共用 Inspector，但 7k7k 的播放器壳未做专门适配；本机仅验证了页面解析，未逐游戏验证。
+1. **加壳变体**：当前只处理“外层 SWF 用 `DefineBinaryData` 内嵌单个完整游戏、且带 `No running in a loader` 标记”的壳。若壳改为多段内嵌、加密内嵌数据或自行解密后再用 `Loader` 载入，抽取器会返回 `null`，表现仍是停在加载页。排查方法：解压后搜索该标记；能搜到但没有合法的 FWS/CWS/ZWS 内嵌段，就是新变体。
+2. **CJK 设备字体**：205551 的 UPDATE 等弹窗使用宋体/微软雅黑/黑体设备字体，Ruffle Web 端没有这些字体的映射，部分文字会显示为缺字或方块，不影响进入游戏。后续可在播放页注入本地字体映射，或换用带字库的 Ruffle 构建。
+3. **AS3 兼容性**：Ruffle 对复杂 AS3/Flex 项目覆盖有限，部分游戏能加载但交互异常。
+4. **登录态范围**：Cookie 注入解决了“游戏请求带登录 Cookie”，但有些 4399 接口还要求页面里的 JS 桥（`4399api_*` 回调）。本机用 `Reflect.get` 钩子监听 30 秒未发现壳发起 JS 调用，故未实现桥接；如后续发现调用，可在 `player.html` 里按名称补 `window['4399api_xxx']`。
+5. **HTTPS 证书**：主进程 `onHeadersReceived` 只为播放器上下文补 CORS，不忽略证书错误；某些老站点自签证书会直接失败。
+6. **广告拦截**：域名级黑名单可能误伤同域下的必要接口，遇到“加载卡住”可先用 `AP_OFFLINE` 之外的正常网络复测，并把必要路径加入 `PRELOADER_ALLOW`。
+7. **7k7k**：解析路径与 4399 共用 Inspector，但 7k7k 的播放器壳未做专门适配；本机仅验证了页面解析，未逐游戏验证。
 
 ---
 
@@ -430,6 +513,7 @@ AP_SMOKE_WAIT=12000 AP_SMOKE_CLICK=1 AP_SMOKE_OFFSCREEN=1 \
 | 解析出 0 个候选 | 页面是否 H5；是否要手动点“开始游戏” | 用 dev 浏览器窗口打开并点开始后再“解析此页” |
 | 候选是 3 KB 左右 | 是否 `cell.swf` | 已被过滤；若仍有，把 URL 加进 `isAdSwf` 规则 |
 | 保存后黑屏 | Ruffle 控制台错误 | 开 `localStorage.apDebug=1` 看 `stub` / `FetchError` |
+| 停在 4399 加载页或提示「不允许加壳运行」 | 内层游戏的反加壳检查 | 看 `items/<id>/play.swf` 是否生成；解压主 SWF 搜 `No running in a loader` |
 | 4399 资源 403 | Referer/Cookie | 检查 `isPlayerContext` 与 `resolveCookie` 是否命中 |
 | 浏览器窗口白屏 | CSP / webview | 确认窗口 `webviewTag:true`，且 `/browser` 路由返回 200 |
 | 游戏在主窗口卡顿 | 是否用了独立窗口 | 用「独立窗口」启动，主窗口的重活不会影响它 |
@@ -441,11 +525,13 @@ AP_SMOKE_WAIT=12000 AP_SMOKE_CLICK=1 AP_SMOKE_OFFSCREEN=1 \
 
 | 路径 | 说明 | 大小 |
 | --- | --- | --- |
+| `release/FlashGamer-0.3.0/` | v0.3.0 绿色版目录（无浏览器，含加壳修复） | 415 MB |
+| `release/FlashGamer-0.3.0-portable.zip` | v0.3.0 压缩包 | 174,652,965 B |
+| `release/FlashGamer-0.3.1-dev/` | v0.3.1-dev 绿色版目录（含网页浏览 + 加壳修复） | 415 MB |
+| `release/FlashGamer-0.3.1-dev-portable.zip` | v0.3.1-dev 压缩包 | 174,653,406 B |
 | `release/AppProfessor/`、`release/AppProfessor-0.1.0-portable.zip` | v0.1，未改动 | 557 MB / 164,168,872 B |
-| `release/FlashGamer-0.2.0/` | v0.2 绿色版目录（无浏览器） | 415 MB |
-| `release/FlashGamer-0.2.0-portable.zip` | v0.2 压缩包 | 174,562,696 B |
-| `release/FlashGamer-0.3.0-dev/` | v0.3 绿色版目录（含网页浏览） | 415 MB |
-| `release/FlashGamer-0.3.0-dev-portable.zip` | v0.3 压缩包 | 174,564,267 B |
+| `release/FlashGamer-0.2.0/`、`release/FlashGamer-0.2.0-portable.zip` | v0.2 历史版本，未改动 | 415 MB / 174,562,696 B |
+| `release/FlashGamer-0.3.0-dev/`、`release/FlashGamer-0.3.0-dev-portable.zip` | v0.3.0-dev 历史版本，未改动 | 415 MB / 174,564,267 B |
 | `build/icon.ico`、`build/icons/` | 新图标 | — |
 | `vendor/ruffle/` | Ruffle 0.8.0-nightly.2026.10.29 | — |
 | `vendor/4399/ctrl_mo_v5.swf` | 4399 控制器离线副本 | 415,361 B |
@@ -453,11 +539,13 @@ AP_SMOKE_WAIT=12000 AP_SMOKE_CLICK=1 AP_SMOKE_OFFSCREEN=1 \
 校验值（本机生成，供比对）：
 
 ```
-a51d94d6b9e4880c4a80974778d54d7ec704b2c878904895ecfdf1e715a86651  FlashGamer-0.2.0-portable.zip
-6c3da4019055bd67848e0c1e740552eda734f769dd1b52cf67a7e3852391ccd9  FlashGamer-0.3.0-dev-portable.zip
+6242bcf87b9028f39035fda8aa0a90d75439ef849861a5e5c62bf7b7a9a46835  FlashGamer-0.3.0-portable.zip
+79f9604c4fe1325ee402714dd157dda90061a09d0b393ed56c22ec0d956dd7fb  FlashGamer-0.3.1-dev-portable.zip
+a51d94d6b9e4880c4a80974778d54d7ec704b2c878904895ecfdf1e715a86651  FlashGamer-0.2.0-portable.zip（历史）
+6c3da4019055bd67848e0c1e740552eda734f769dd1b52cf67a7e3852391ccd9  FlashGamer-0.3.0-dev-portable.zip（历史）
 dc40d2f2c212f4fd3785eeb352e7a1eab6781436c42bc90103d988883785800f  AppProfessor-0.1.0-portable.zip
 ```
 
 ```bash
-sha256sum release/FlashGamer-0.2.0-portable.zip release/FlashGamer-0.3.0-dev-portable.zip
+sha256sum release/FlashGamer-0.3.0-portable.zip release/FlashGamer-0.3.1-dev-portable.zip
 ```
