@@ -15,9 +15,31 @@ app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 
-const DATA_DIR = process.env.AP_DATA_DIR || (app.isPackaged
-  ? path.join(process.env.PORTABLE_EXECUTABLE_DIR || path.dirname(app.getPath('exe')), 'FlashGamerData')
-  : path.join(__dirname, '..', 'data'));
+function writableDir(dir) {
+  try {
+    ensureDir(dir);
+    const probe = path.join(dir, '.write-probe');
+    fs.writeFileSync(probe, '');
+    fs.unlinkSync(probe);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function resolveDataDir() {
+  if (process.env.AP_DATA_DIR) return process.env.AP_DATA_DIR;
+  if (!app.isPackaged) return path.join(__dirname, '..', 'data');
+  const base = process.env.PORTABLE_EXECUTABLE_DIR || path.dirname(app.getPath('exe'));
+  if (fs.existsSync(path.join(base, 'installed.marker'))) {
+    return path.join(app.getPath('userData'), 'FlashGamerData');
+  }
+  const beside = path.join(base, 'FlashGamerData');
+  // 绿色版放在只读目录时退回用户目录
+  return writableDir(beside) ? beside : path.join(app.getPath('userData'), 'FlashGamerData');
+}
+
+const DATA_DIR = resolveDataDir();
 const LEGACY_DATA_DIR = app.isPackaged
   ? path.join(path.dirname(DATA_DIR), 'AppProfessorData')
   : null;
