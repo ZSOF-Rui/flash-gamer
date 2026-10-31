@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flash Gamer — Flash 小游戏离线馆</title>
+  <meta name="description" content="把 4399 / 7k7k 的 Flash 游戏页粘进来，取出游戏本体存到本机，断网也能玩。不装 Adobe Flash，不弹网页广告。">
+  <link rel="icon" href="assets/icon.png">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="#top" aria-label="Flash Gamer 首页">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="img"><path d="M13.5 2 4.8 13.2h5.4L9.9 22l9-11.6h-5.6L13.5 2Z"/></svg>
+        </span>
+        <span class="brand-name">Flash Gamer</span>
+      </a>
+      <nav class="nav" id="nav" aria-label="主导航">
+        <a href="#features">功能</a>
+        <a href="#browser">网页浏览</a>
+        <a href="#how">使用方法</a>
+        <a href="#faq">常见问题</a>
+        <a class="nav-cta" href="#download">下载</a>
+      </nav>
+      <button class="nav-toggle" id="navToggle" aria-label="展开导航" aria-expanded="false" aria-controls="nav">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <span class="pill">v0.3.1 · Windows 10 / 11 64 位</span>
+          <h1>把 Flash 小游戏，<br><em>留在自己电脑里。</em></h1>
+          <p class="lead">把 4399 / 7k7k 的游戏页地址粘进来，自动取出游戏本体，存到本机。之后断网也能打开，不装 Adobe Flash，也不会弹出游戏网页里的广告。</p>
+          <div class="actions">
+            <a class="btn btn-primary" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.3.1-setup.exe" data-download="setup">
+              下载安装版
+              <span class="btn-note">约 130 MB</span>
+            </a>
+            <a class="btn btn-ghost" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.3.1-portable.zip" data-download="portable">
+              下载免安装版
+              <span class="btn-note">解压即用</span>
+            </a>
+          </div>
+          <ul class="hero-points">
+            <li>无需 Adobe Flash</li>
+            <li>游戏存在本机</li>
+            <li>同一游戏只存一份</li>
+          </ul>
+        </div>
+        <figure class="shot hero-shot">
+          <div class="shot-bar" aria-hidden="true"><i></i><i></i><i></i><span>Flash Gamer</span></div>
+          <img src="assets/app-main.png" alt="Flash Gamer 主界面：左侧是本地游戏库，右侧是正在运行的游戏" width="1800" height="1200">
+        </figure>
+      </div>
+    </section>
+
+    <div class="trust">
+      <div class="wrap trust-inner">
+        <span>不安装 Adobe Flash Player</span>
+        <span>播放时不加载游戏网页</span>
+        <span>本地 HTTP 播放，不上传游戏</span>
+        <span>解析、播放、缓存都在本机完成</span>
+      </div>
+    </div>
+
+    <section class="section" id="features">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="eyebrow">功能</span>
+          <h2>像收藏音乐一样，收藏 Flash 游戏</h2>
+          <p>只做三件事：取出游戏本体、存在本地、稳定地跑起来。</p>
+        </div>
+        <div class="grid-3">
+          <article class="card">
+            <span class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.1-1.1"/></svg>
+            </span>
+            <h3>粘贴链接就能解析</h3>
+            <p>支持 4399 与 7k7k 游戏页。页面里有多个 SWF 时会列出候选，自动跳过广告占位壳，优先选择游戏本体。</p>
+          </article>
+          <article class="card">
+            <span class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3v10"/><path d="m8 7 4-4 4 4"/><path d="M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg>
+            </span>
+            <h3>下载一次，离线可玩</h3>
+            <p>游戏文件保存在本机。之后启动程序、点开游戏即可，不再依赖 4399 的服务器，也不再需要网络。</p>
+          </article>
+          <article class="card">
+            <span class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 2 4 6v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6l-8-4Z"/><path d="m9 12 2 2 4-4"/></svg>
+            </span>
+            <h3>不装 Flash，不跑网页广告</h3>
+            <p>用 Rust 写的 Ruffle 播放器运行 SWF。播放阶段只加载游戏本体，页面上的弹窗、悬浮广告和统计脚本都不会执行。</p>
+          </article>
+          <article class="card">
+            <span class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 18v3"/></svg>
+            </span>
+            <h3>独立游戏窗口</h3>
+            <p>游戏可以单独开一个窗口，主窗口继续浏览、解析别的游戏都不打断。游戏窗口不会被后台节流。</p>
+          </article>
+          <article class="card">
+            <span class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/><path d="M6 7v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7"/><path d="M10 11v6M14 11v6"/></svg>
+            </span>
+            <h3>重复文件自动去重</h3>
+            <p>同一个 SWF 按 SHA-256 只保存一份。重复解析、重复导入都不会让游戏库越堆越大。</p>
+          </article>
+          <article class="card">
+            <span class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M21 3v6h-6"/><path d="M3 12h4"/></svg>
+            </span>
+            <h3>坏了能重试</h3>
+            <p>解析失败会保留页面预览与候选信息。可以换一个入口，或在页面里先点“开始游戏”，再点“解析此页”。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section browser-section" id="browser">
+      <div class="wrap browser-grid">
+        <figure class="shot">
+          <div class="shot-bar" aria-hidden="true"><i></i><i></i><i></i><span>网页浏览 — Flash Gamer</span></div>
+          <img src="assets/browser.png" alt="内置网页浏览窗口，可以在 4399 页面里登录并解析当前页" width="1920" height="1290" loading="lazy">
+        </figure>
+        <div class="browser-copy">
+          <span class="eyebrow">0.3.1 新增</span>
+          <h2>需要登录的游戏，<br>在应用里直接登录</h2>
+          <p>内置网页浏览窗口，可以像普通浏览器一样打开 4399、登录账号，再点“解析此页”。登录状态保存在本机，解析和游戏请求会自动带上 Cookie。</p>
+          <ul class="check-list">
+            <li>游戏里的链接在当前页打开，不再弹出没有地址栏的小窗</li>
+            <li>地址栏、前进后退、刷新与“解析此页”始终可用</li>
+            <li>浏览与解析在同一个窗口，登录态不会丢</li>
+          </ul>
+          <p class="muted small">网页浏览会打开 4399 原页面，页面自身的广告由 4399 决定；只有游戏播放器不加载网页。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="how">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="eyebrow">使用方法</span>
+          <h2>三步，把游戏收进本地</h2>
+        </div>
+        <ol class="steps">
+          <li>
+            <span class="step-num">1</span>
+            <h3>复制游戏页地址</h3>
+            <p>在浏览器里打开 4399 / 7k7k 的游戏页，复制地址栏里的链接。</p>
+          </li>
+          <li>
+            <span class="step-num">2</span>
+            <h3>粘贴并点“解析”</h3>
+            <p>把链接粘到 Flash Gamer 顶部的输入框，点“解析”，等待抓取完成。</p>
+          </li>
+          <li>
+            <span class="step-num">3</span>
+            <h3>点开就玩</h3>
+            <p>游戏自动入库并开始播放；之后在左侧游戏库里随时点开，断网也能运行。</p>
+          </li>
+        </ol>
+        <div class="how-foot">
+          <figure class="shot">
+            <div class="shot-bar" aria-hidden="true"><i></i><i></i><i></i><span>游戏窗口</span></div>
+            <img src="assets/game.png" alt="Flash 游戏在独立窗口中运行" width="1500" height="1140" loading="lazy">
+          </figure>
+          <div class="how-foot-copy">
+            <h3>也可以直接把 .swf 拖进来</h3>
+            <p>已经有游戏文件的，用“导入 SWF”或直接拖进窗口即可。游戏页失效了也不影响已经入库的游戏，文件始终在本机。</p>
+            <p class="muted small">“独立窗口”会把当前游戏开在单独的窗口里，主窗口继续解析、浏览都不会打断它。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section faq-section" id="faq">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="eyebrow">常见问题</span>
+          <h2>下载之前，先确认这些</h2>
+        </div>
+        <div class="faq">
+          <details>
+            <summary>会安装 Adobe Flash Player 吗？</summary>
+            <p>不会。播放器是 Ruffle，用 Rust 编译成 WebAssembly 运行，不需要 Adobe Flash Player，也不会修改浏览器插件。</p>
+          </details>
+          <details>
+            <summary>为什么 Windows 提示“未知发布者”？</summary>
+            <p>安装包没有购买代码签名证书，Windows SmartScreen 会给出提示。可以点“更多信息 → 仍要运行”，或用下载页给出的 SHA-256 校验文件完整性。源码与构建脚本都在 GitHub 上。</p>
+          </details>
+          <details>
+            <summary>游戏数据存在哪里？卸载会删掉吗？</summary>
+            <p>安装版存在 <code>%APPDATA%\Flash Gamer\FlashGamerData</code>，卸载程序不会删除这个目录。免安装版存在程序旁边的 <code>FlashGamerData</code>，删掉整个文件夹即可清空。游戏库本身就是 SWF 文件，可以直接拷走。</p>
+          </details>
+          <details>
+            <summary>真的能断网玩吗？</summary>
+            <p>解析游戏和补齐资源时需要联网。抓取完成后，游戏本体与缓存已经在本地，断网后仍可启动并正常游玩；依赖在线登录或联网对战的游戏除外。</p>
+          </details>
+          <details>
+            <summary>为什么有些游戏解析出来是广告？</summary>
+            <p>4399 会在页面里放广告占位 SWF。程序会跳过常见的 <code>cell.swf</code> 广告壳并优先选择体积最大的游戏本体；如果页面里确实有多个候选，会列出列表让你选择。</p>
+          </details>
+          <details>
+            <summary>支持哪些游戏？</summary>
+            <p>Ruffle 兼容大多数 Flash 8 / AS2 游戏；依赖冷门 AS3 特性、3D 加速或联网服务的游戏可能无法运行。这是 Ruffle 的兼容范围，不是解析失败。</p>
+          </details>
+          <details>
+            <summary>会收集我的账号或游戏数据吗？</summary>
+            <p>不会。程序没有遥测与上报，解析、缓存和播放都在本机完成。登录 Cookie 只保存在本机，用于在解析游戏时带上登录态。</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="section download-section" id="download">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="eyebrow">下载</span>
+          <h2>选择适合你的版本</h2>
+          <p>Windows 10 / 11 64 位。两者功能相同，区别只在安装方式与数据位置。</p>
+        </div>
+        <div class="download-grid">
+          <article class="download-card primary">
+            <div class="download-head">
+              <h3>安装版</h3>
+              <span class="badge">推荐</span>
+            </div>
+            <p>像普通软件一样安装：可以选择安装目录，自动创建桌面与开始菜单快捷方式，之后从开始菜单启动。</p>
+            <ul class="check-list">
+              <li>可选择安装路径</li>
+              <li>桌面 + 开始菜单快捷方式</li>
+              <li>游戏库存放在用户目录，卸载不删除</li>
+            </ul>
+            <a class="btn btn-primary btn-block" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.3.1-setup.exe" data-download="setup">
+              下载 FlashGamer-0.3.1-setup.exe
+            </a>
+            <p class="file-meta"><span data-size="setup">约 130 MB</span> · 未签名 · <a href="#verify">校验值</a></p>
+          </article>
+          <article class="download-card">
+            <div class="download-head">
+              <h3>免安装版</h3>
+            </div>
+            <p>解压到任意文件夹，双击 <code>Flash Gamer.exe</code> 就能用。游戏库放在程序旁边，适合放 U 盘或随时删干净。</p>
+            <ul class="check-list">
+              <li>解压即用，不写注册表</li>
+              <li>数据跟着文件夹走</li>
+              <li>删掉文件夹即清空</li>
+            </ul>
+            <a class="btn btn-ghost btn-block" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.3.1-portable.zip" data-download="portable">
+              下载 FlashGamer-0.3.1-portable.zip
+            </a>
+            <p class="file-meta"><span data-size="portable">约 167 MB</span> · 未签名 · <a href="#verify">校验值</a></p>
+          </article>
+        </div>
+
+        <div class="verify" id="verify">
+          <h3>SHA-256 校验值</h3>
+          <p class="muted">下载后可对照以下值确认文件完整。PowerShell：<code>Get-FileHash .\FlashGamer-0.3.1-setup.exe -Algorithm SHA256</code></p>
+          <div class="hash-row">
+            <span class="hash-label">安装版</span>
+            <code class="hash" data-hash="setup">811bec9778a3f0c99889b799d845a60552dff23e14d16a6ea98eb8fe4c1a1445</code>
+            <button class="copy-btn" type="button" data-copy="setup">复制</button>
+          </div>
+          <div class="hash-row">
+            <span class="hash-label">免安装版</span>
+            <code class="hash" data-hash="portable">88be3781d954555c364d793ab4304b2ad20777b17ced29065decb47fec9ddc08</code>
+            <button class="copy-btn" type="button" data-copy="portable">复制</button>
+          </div>
+        </div>
+
+        <p class="disclaimer">Flash Gamer 只提供播放工具，不包含任何游戏文件。游戏版权归原作者与平台所有，请仅用于个人离线游玩。</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <div class="footer-brand">
+        <span class="brand-mark small" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M13.5 2 4.8 13.2h5.4L9.9 22l9-11.6h-5.6L13.5 2Z"/></svg>
+        </span>
+        <span>Flash Gamer</span>
+      </div>
+      <p>本地运行，不上传游戏与账号。游戏版权归原作者与平台所有。</p>
+      <a href="https://github.com/ZSOF-Rui/flash-gamer" target="_blank" rel="noreferrer">GitHub</a>
+    </div>
+  </footer>
+
+  <script src="assets/site.js"></script>
+</body>
+</html>
