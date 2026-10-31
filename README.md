@@ -11,10 +11,12 @@ Flash 小游戏离线馆。把 4399 / 7k7k 的 Flash 游戏页面粘贴进来，
 
 | 版本 | 位置 | 内容 |
 | --- | --- | --- |
-| v0.3.1 | `main` / Release | 浏览器 + 登录共享 + 加壳修复；NSIS 安装程序 + 免安装 zip |
-| v0.3.0 无浏览器版 | `lite` 分支、`release/FlashGamer-0.3.0*` | 只保留直接粘贴链接解析，产物原样归档 |
-| v0.2.0 | `release/FlashGamer-0.2.0*` | 改名、新图标、独立游戏窗口、后台运行（历史版本） |
-| v0.1.0 | `v0.1-app-professor` 分支、`release/AppProfessor*` | App Professor 初始版，原样保留 |
+| v0.3.1 | `main` 分支、GitHub Release | 浏览器 + 登录共享 + 加壳修复；NSIS 安装程序 + 免安装 zip |
+| v0.3.0 无浏览器版 | `lite` 分支 | 只保留直接粘贴链接解析；旧二进制留在本机 `release/`，未上传 Release |
+| v0.2.0 | 历史提交 | 改名、新图标、独立游戏窗口、后台运行 |
+| v0.1.0 | `v0.1-app-professor` 分支、`v0.1.0` 标签 | App Professor 初始版，原样保留 |
+
+GitHub Release 只提供 v0.3.1 的安装包与免安装包；`release/` 是本机构建输出，不进入 Git 历史。
 
 ## v0.3.1 更新
 

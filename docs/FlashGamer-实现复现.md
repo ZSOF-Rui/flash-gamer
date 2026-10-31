@@ -616,6 +616,8 @@ AP_SMOKE_WAIT=12000 AP_SMOKE_CLICK=1 AP_SMOKE_OFFSCREEN=1 \
 
 ## 9. 产物清单
 
+`release/` 是本机构建输出，已加入 `.gitignore`，不进入 Git 仓库。GitHub Release 只上传 v0.3.1 的 `FlashGamer-0.3.1-setup.exe` 与 `FlashGamer-0.3.1-portable.zip`；下表中的旧版本产物是保留在本机的历史文件，未上传。
+
 | 路径 | 说明 | 大小 |
 | --- | --- | --- |
 | `release/FlashGamer-0.3.1-setup.exe` | v0.3.1 NSIS 安装程序（正式交付） | 136,648,895 B |
