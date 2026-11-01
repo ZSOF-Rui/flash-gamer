@@ -232,6 +232,26 @@ function createWindow() {
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
+function notifyGameWindow(id, open) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('game:window', { id, open });
+  }
+}
+
+function closeGameWindows(id) {
+  let closed = 0;
+  for (const [gid, win] of [...gameWindows]) {
+    if (id && gid !== id) continue;
+    if (win.isDestroyed()) {
+      gameWindows.delete(gid);
+      continue;
+    }
+    win.close();
+    closed++;
+  }
+  return closed;
+}
+
 function openGameWindow(id) {
   const item = lib.get(id);
   if (!item) throw new Error('游戏不存在');
@@ -240,6 +260,7 @@ function openGameWindow(id) {
     if (existing.isMinimized()) existing.restore();
     existing.show();
     existing.focus();
+    notifyGameWindow(id, true);
     return true;
   }
   lib.update(id, { playedAt: Date.now() });
@@ -265,8 +286,12 @@ function openGameWindow(id) {
     if (/^https?:/i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
-  win.on('closed', () => gameWindows.delete(id));
+  win.on('closed', () => {
+    gameWindows.delete(id);
+    notifyGameWindow(id, false);
+  });
   gameWindows.set(id, win);
+  notifyGameWindow(id, true);
   return true;
 }
 
@@ -558,6 +583,12 @@ async function registerIpc() {
 
   ipcMain.handle('library:openWindow', (_e, id) => openGameWindow(id));
 
+  ipcMain.handle('library:stop', () => closeGameWindows());
+
+  ipcMain.handle('library:windows', () => [...gameWindows]
+    .filter(([, win]) => !win.isDestroyed())
+    .map(([id]) => id));
+
   ipcMain.handle('browser:open', () => openBrowserWindow());
 
   ipcMain.handle('browser:flashState', () => ({ ready: browserFlashOk }));
@@ -614,6 +645,7 @@ async function registerIpc() {
       detail: '本地文件与缓存会被一并删除。'
     });
     if (response !== 0) return false;
+    closeGameWindows(id);
     return lib.remove(id);
   });
 
@@ -788,6 +820,36 @@ async function smoke() {
             })()`);
           }
         } catch (e) { result.gameWindowError = String(e.message || e); }
+      }
+      if (process.env.AP_SMOKE_STOP === '1') {
+        result.stopBefore = await mainWindow.webContents.executeJavaScript(`(() => ({
+          stopDisabled: document.getElementById('btnStop').disabled,
+          playing: document.querySelector('.stage').classList.contains('playing'),
+          status: document.getElementById('status').textContent,
+          frame: document.getElementById('frame').src
+        }))()`);
+        result.stopBeforeWindows = [...gameWindows.keys()];
+        await mainWindow.webContents.executeJavaScript(`document.getElementById('btnStop').click()`);
+        await new Promise((r) => setTimeout(r, 1500));
+        result.stopAfter = await mainWindow.webContents.executeJavaScript(`(() => ({
+          stopDisabled: document.getElementById('btnStop').disabled,
+          playing: document.querySelector('.stage').classList.contains('playing'),
+          status: document.getElementById('status').textContent,
+          frame: document.getElementById('frame').src,
+          placeholder: document.querySelector('#placeholder p').textContent
+        }))()`);
+        result.stopAfterWindows = [...gameWindows.keys()];
+        await shot('stopped');
+        if (process.env.AP_SMOKE_STOP_REPLAY === '1') {
+          await mainWindow.webContents.executeJavaScript(`document.getElementById('btnPlay').click()`);
+          await new Promise((r) => setTimeout(r, Math.min(playWait, 4000)));
+          result.stopReplay = await mainWindow.webContents.executeJavaScript(`(() => ({
+            stopDisabled: document.getElementById('btnStop').disabled,
+            playing: document.querySelector('.stage').classList.contains('playing'),
+            status: document.getElementById('status').textContent,
+            frame: document.getElementById('frame').src
+          }))()`);
+        }
       }
       result.cache = lib.cacheStats(id);
       await shot('replay');

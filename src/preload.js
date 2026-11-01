@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('api', {
   add: (payload) => ipcRenderer.invoke('library:add', payload),
   play: (id) => ipcRenderer.invoke('library:play', id),
   openWindow: (id) => ipcRenderer.invoke('library:openWindow', id),
+  stopGames: () => ipcRenderer.invoke('library:stop'),
+  runningWindows: () => ipcRenderer.invoke('library:windows'),
   openBrowser: () => ipcRenderer.invoke('browser:open'),
   remove: (id) => ipcRenderer.invoke('library:remove', id),
   reveal: (id) => ipcRenderer.invoke('library:reveal', id),
@@ -24,6 +26,11 @@ contextBridge.exposeInMainWorld('api', {
     const handler = () => cb();
     ipcRenderer.on('library:changed', handler);
     return () => ipcRenderer.removeListener('library:changed', handler);
+  },
+  onGameWindow: (cb) => {
+    const handler = (_e, msg) => cb(msg);
+    ipcRenderer.on('game:window', handler);
+    return () => ipcRenderer.removeListener('game:window', handler);
   },
   appVersion: () => ipcRenderer.invoke('update:version'),
   checkUpdate: () => ipcRenderer.invoke('update:check'),

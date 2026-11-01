@@ -4,7 +4,7 @@ Flash 小游戏离线馆。把Flash 游戏页面粘贴进来，取出游戏本�
 
 只运行游戏文件，不加载网页广告；不安装 Adobe Flash Player，也不带任何捆绑软件。
 
-![Flash Gamer 实际运行：左侧本地游戏库，右侧正在播放的游戏](docs/FlashGamer-v0.3.2-main.png)
+![Flash Gamer 实际运行：左侧本地游戏库，右侧正在播放的游戏](docs/FlashGamer-v0.3.3-main.png)
 
 - 官网：<https://zsof-rui.github.io/flash-gamer/>
 - 官网镜像：<https://flash-gamer-ch09cuq83vg.qoder.website/>
@@ -14,7 +14,8 @@ Flash 小游戏离线馆。把Flash 游戏页面粘贴进来，取出游戏本�
 
 | 版本 | 位置 | 内容 |
 | --- | --- | --- |
-| v0.3.2 | `main` 分支、GitHub Release | 网页内 Flash 播放 + 双源软件更新；NSIS 安装程序 + 免安装 zip |
+| v0.3.3 | `main` 分支、GitHub Release | 停止运行、圆角应用图标；NSIS 安装程序 + 免安装 zip |
+| v0.3.2 | 历史版本 | 网页内 Flash 播放 + 双源软件更新；NSIS 安装程序 + 免安装 zip |
 | v0.3.1 | 历史版本 | 浏览器 + 登录共享 + 加壳修复；NSIS 安装程序 + 免安装 zip |
 | v0.3.0 无浏览器版 | `lite` 分支 | 只保留直接粘贴链接解析；旧二进制留在本机 `release/`，未上传 Release |
 | v0.2.0 | 历史提交 | 改名、新图标、独立游戏窗口、后台运行 |
@@ -31,6 +32,8 @@ Flash 小游戏离线馆。把Flash 游戏页面粘贴进来，取出游戏本�
 
 「独立窗口」会把当前游戏开在单独的窗口里，主窗口继续浏览、解析别的游戏都不会打断它；游戏窗口使用独立的渲染进程且关闭后台限速。
 
+点「停止运行」会卸载主窗口里的播放器，并关闭所有独立游戏窗口；之后点「开始游戏」可以重新启动。
+
 ### 网页浏览
 
 主界面点「网页浏览」打开浏览器窗口，可以像普通浏览器一样访问 4399 / 7k7k、登录账号，再点「解析此页」把当前页面的游戏收入本地库。登录 Cookie 会共享给解析器和播放器。
@@ -41,8 +44,8 @@ Flash 小游戏离线馆。把Flash 游戏页面粘贴进来，取出游戏本�
 
 Windows 10 / 11 64 位。
 
-- **安装版** `FlashGamer-0.3.2-setup.exe`：助手式安装，可改安装路径；创建桌面和开始菜单快捷方式；卸载入口在「设置 → 应用」和开始菜单。数据在 `%APPDATA%\Flash Gamer\FlashGamerData`，卸载不删除。
-- **免安装版** `FlashGamer-0.3.2-portable.zip`：解压到任意文件夹，双击 `Flash Gamer.exe`。数据在 exe 同目录的 `FlashGamerData`，删文件夹即清空。
+- **安装版** `FlashGamer-0.3.3-setup.exe`：助手式安装，可改安装路径；创建桌面和开始菜单快捷方式；卸载入口在「设置 → 应用」和开始菜单。数据在 `%APPDATA%\Flash Gamer\FlashGamerData`，卸载不删除。
+- **免安装版** `FlashGamer-0.3.3-portable.zip`：解压到任意文件夹，双击 `Flash Gamer.exe`。数据在 exe 同目录的 `FlashGamerData`，删文件夹即清空。
 
 安装包没有购买代码签名证书，Windows SmartScreen 可能提示“未知发布者”，可点“更多信息 → 仍要运行”。下载页提供 SHA-256 校验值。
 
@@ -85,16 +88,16 @@ NSIS 安装程序的配置在 `package.json` 的 `build.nsis` 中，`build/insta
 
 ```bash
 npx electron-builder --win nsis --x64 \
-  --config.directories.output=release/build-0.3.2-dir3 --config.electronDist=release/electron-dist-45.1.0
+  --config.directories.output=release/build-0.3.3-dir --config.electronDist=release/electron-dist-45.1.0
 ```
 
 免安装 zip 由打包产物的 `win-unpacked` 整理而来：
 
 ```bash
-mkdir -p .tmp-pack/FlashGamer-0.3.2
-cp -r release/build-0.3.2-dir3/win-unpacked/. .tmp-pack/FlashGamer-0.3.2/
-rm -f .tmp-pack/FlashGamer-0.3.2/resources/default_app.asar
-7z a -tzip -mx=5 release/FlashGamer-0.3.2-portable.zip .tmp-pack/FlashGamer-0.3.2
+mkdir -p .tmp-pack/FlashGamer-0.3.3
+cp -r release/build-0.3.3-dir/win-unpacked/. .tmp-pack/FlashGamer-0.3.3/
+rm -f .tmp-pack/FlashGamer-0.3.3/resources/default_app.asar
+7z a -tzip -mx=5 release/FlashGamer-0.3.3-portable.zip .tmp-pack/FlashGamer-0.3.3
 ```
 
 如果 Windows 上出现 `EPERM/EBUSY ... default_app.asar`，说明 Electron 解压后的改名被 Defender/索引服务占用，可改用已解压的 Electron 目录（`--config.electronDist=...`）。完整命令与实测记录见 [`docs/FlashGamer-实现复现.md`](docs/FlashGamer-实现复现.md)。
@@ -111,12 +114,12 @@ rm -f .tmp-pack/FlashGamer-0.3.2/resources/default_app.asar
 
 ```json
 {
-  "version": "0.3.2",
-  "publishedAt": "2026-10-31",
+  "version": "0.3.3",
+  "publishedAt": "2026-11-01",
   "notes": "更新说明，可写多行",
   "assets": {
-    "setup": { "url": "...exe", "size": 136655685, "sha256": "..." },
-    "portable": { "url": "...zip", "size": 174634686, "sha256": "..." }
+    "setup": { "url": "...exe", "size": 136394562, "sha256": "53e3a3a2..." },
+    "portable": { "url": "...zip", "size": 174650223, "sha256": "86500762..." }
   }
 }
 ```

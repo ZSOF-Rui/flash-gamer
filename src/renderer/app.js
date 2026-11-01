@@ -6,8 +6,17 @@ const state = {
   inspecting: false,
   pending: null,
   candKey: null,
-  poll: null
+  poll: null,
+  playing: false,
+  windows: new Set()
 };
+
+const PLACEHOLDER_TIP = '左侧选择游戏，或在上方粘贴游戏页链接';
+
+function setPlaceholderTip(text) {
+  const p = $('#placeholder p');
+  if (p) p.textContent = text || PLACEHOLDER_TIP;
+}
 
 function fmt(n) {
   if (!Number.isFinite(n) || n <= 0) return '0 B';
@@ -70,6 +79,10 @@ function stopPolling() {
   state.poll = null;
 }
 
+function updateRunButtons() {
+  $('#btnStop').disabled = !state.playing && state.windows.size === 0;
+}
+
 async function updateCacheLine() {
   if (!state.selected) {
     $('#cacheLine').textContent = '缓存 0 B';
@@ -85,10 +98,12 @@ async function updateCacheLine() {
 
 async function select(id, autoplay) {
   state.selected = state.items.find((x) => x.id === id) || null;
+  setPlaceholderTip();
   renderList();
   const it = state.selected;
   const on = !!it;
   for (const b of ['#btnPlay', '#btnWindow', '#btnReload', '#btnFolder', '#btnDelete']) $(b).disabled = !on;
+  updateRunButtons();
   if (!it) return;
 
   $('#gameTitle').textContent = it.title;
@@ -107,6 +122,8 @@ async function play() {
     const frame = $('#frame');
     frame.src = `${url}?ts=${Date.now()}`;
     document.querySelector('.stage').classList.add('playing');
+    state.playing = true;
+    updateRunButtons();
     setStatus(`运行中：${it.title}`);
     stopPolling();
     state.poll = setInterval(updateCacheLine, 4000);
@@ -114,6 +131,21 @@ async function play() {
   } catch (e) {
     toast(`启动失败：${e.message}`);
   }
+}
+
+async function stopAll() {
+  if (!state.playing && state.windows.size === 0) return;
+  state.playing = false;
+  state.windows.clear();
+  stopPolling();
+  $('#frame').src = 'about:blank';
+  document.querySelector('.stage').classList.remove('playing');
+  setPlaceholderTip('已停止运行，点击「开始游戏」重新启动');
+  updateRunButtons();
+  setStatus('已停止运行');
+  let closed = 0;
+  try { closed = await window.api.stopGames(); } catch {}
+  toast(closed ? `已停止运行，关闭 ${closed} 个独立窗口` : '已停止运行');
 }
 
 function enablePlayButtons(on) {
@@ -202,10 +234,14 @@ $('#btnParse').onclick = doParse;
 $('#url').addEventListener('keydown', (e) => { if (e.key === 'Enter') doParse(); });
 
 $('#btnPlay').onclick = play;
+$('#btnStop').onclick = stopAll;
 $('#btnWindow').onclick = async () => {
   if (!state.selected) return;
+  const id = state.selected.id;
   try {
-    await window.api.openWindow(state.selected.id);
+    await window.api.openWindow(id);
+    state.windows.add(id);
+    updateRunButtons();
     toast('已用独立窗口启动，主窗口可以继续操作');
   } catch (e) {
     toast('打开失败：' + e.message);
@@ -220,12 +256,17 @@ $('#btnReload').onclick = () => {
 $('#btnFolder').onclick = () => state.selected && window.api.reveal(state.selected.id);
 $('#btnDelete').onclick = async () => {
   if (!state.selected) return;
-  const ok = await window.api.remove(state.selected.id);
+  const removedId = state.selected.id;
+  const ok = await window.api.remove(removedId);
   if (ok) {
     stopPolling();
     state.selected = null;
+    state.playing = false;
+    state.windows.delete(removedId);
     $('#frame').src = 'about:blank';
     document.querySelector('.stage').classList.remove('playing');
+    setPlaceholderTip();
+    updateRunButtons();
     $('#gameTitle').textContent = '还没有选择游戏';
     $('#gameMeta').textContent = '解析一个链接，或者导入手头的 .swf';
     enablePlayButtons(false);
@@ -297,6 +338,18 @@ window.addEventListener('message', (e) => {
 });
 
 window.api.onLibraryChanged(async () => { await refresh(); });
+
+window.api.onGameWindow(({ id, open }) => {
+  if (!id) return;
+  if (open) state.windows.add(id);
+  else state.windows.delete(id);
+  updateRunButtons();
+});
+
+window.api.runningWindows().then((ids) => {
+  state.windows = new Set(Array.isArray(ids) ? ids : []);
+  updateRunButtons();
+}).catch(() => {});
 
 /* ---------- 软件更新 ---------- */
 

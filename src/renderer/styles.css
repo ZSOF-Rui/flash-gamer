@@ -45,6 +45,9 @@ button:disabled { opacity: .45; cursor: default; }
 .danger { background: #fff; border-color: #efc3c1; color: var(--danger); }
 .danger:not(:disabled):hover { background: #fce8e6; }
 
+.stop { border-color: #efc3c1; color: var(--danger); }
+.stop:not(:disabled):hover { background: #fce8e6; }
+
 .topbar {
   height: 76px;
   display: flex;

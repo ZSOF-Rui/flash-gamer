@@ -1,17 +1,17 @@
 {
-  "version": "0.3.2",
-  "publishedAt": "2026-10-31",
-  "notes": "· 网页浏览内置 Ruffle，4399 游戏页可直接运行 Flash，并自动收起遮挡游戏的健康忠告层\n· 新增软件内更新：同时检查官网与 GitHub Pages 清单，下载后校验 SHA-256\n· 修复更新检查时的状态显示",
+  "version": "0.3.3",
+  "publishedAt": "2026-11-01",
+  "notes": "· 新增「停止运行」：卸载主窗口播放器，并关闭所有独立游戏窗口，之后可重新开始\n· 应用图标改为透明圆角，桌面与开始菜单快捷方式同步更新",
   "assets": {
     "setup": {
-      "url": "https://github.com/ZSOF-Rui/flash-gamer/releases/download/v0.3.2/FlashGamer-0.3.2-setup.exe",
-      "size": 136655685,
-      "sha256": "c56caa274c612162536537971ef69be8fb3f4d0acabd0bfd76721ac51de2a06c"
+      "url": "https://github.com/ZSOF-Rui/flash-gamer/releases/download/v0.3.3/FlashGamer-0.3.3-setup.exe",
+      "size": 136394562,
+      "sha256": "53e3a3a2067f30a278b847b46d422af28b423192c11cdad3f67c645093418f78"
     },
     "portable": {
-      "url": "https://github.com/ZSOF-Rui/flash-gamer/releases/download/v0.3.2/FlashGamer-0.3.2-portable.zip",
-      "size": 174633126,
-      "sha256": "c9362a6b356334692edf83da2d3727c7c9c6b71495fed95684d703752aca46f4"
+      "url": "https://github.com/ZSOF-Rui/flash-gamer/releases/download/v0.3.3/FlashGamer-0.3.3-portable.zip",
+      "size": 174650223,
+      "sha256": "8650076243b2e1fde22547a05188d08589f04cf31ba77be486c963a043c88ffb"
     }
   }
 }
