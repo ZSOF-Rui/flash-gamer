@@ -137,7 +137,7 @@ jobs:
           done
           gh release edit "$TAG" --title "Flash Gamer $TAG" --notes-file "$NOTES" --latest
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
       - id: deployment
