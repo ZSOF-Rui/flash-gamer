@@ -114,15 +114,28 @@ jobs:
         with:
           name: update-manifests
           path: site/updates/*.json
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.TAG }}
-          name: Flash Gamer ${{ env.TAG }}
-          body_path: ${{ env.NOTES }}
-          files: artifacts/*
-          fail_on_unmatched_files: true
+      - name: Publish release assets
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "Flash Gamer $TAG" --notes-file "$NOTES" --verify-tag
+          fi
+          for f in artifacts/*; do
+            [ -f "$f" ] || continue
+            for attempt in 1 2 3 4; do
+              if gh release upload "$TAG" "$f" --clobber; then
+                break
+              fi
+              if [ "$attempt" = 4 ]; then
+                echo "上传失败：$(basename "$f")"
+                exit 1
+              fi
+              sleep 10
+            done
+          done
+          gh release edit "$TAG" --title "Flash Gamer $TAG" --notes-file "$NOTES" --latest
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
