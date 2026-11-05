@@ -19,9 +19,9 @@
     "vendor": "node scripts/vendor-ruffle.js",
     "postinstall": "node scripts/vendor-ruffle.js",
     "dist": "npm run dist:win",
-    "dist:win": "electron-builder --win nsis zip --x64 --ia32",
-    "dist:mac": "electron-builder --mac dmg zip --x64 --arm64",
-    "dist:installer": "electron-builder --win nsis --x64 --ia32",
+    "dist:win": "electron-builder --win nsis zip --x64 --ia32 --publish never",
+    "dist:mac": "electron-builder --mac dmg zip --x64 --arm64 --publish never",
+    "dist:installer": "electron-builder --win nsis --x64 --ia32 --publish never",
     "manifests": "node scripts/make-update-manifests.js",
     "icns": "node scripts/make-icns.js"
   },
@@ -76,6 +76,7 @@
       "shortcutName": "Flash Gamer",
       "language": "2052",
       "deleteAppDataOnUninstall": false,
+      "buildUniversalInstaller": false,
       "artifactName": "FlashGamer-${version}-win-${arch}-setup.${ext}",
       "include": "build/installer.nsh"
     },
