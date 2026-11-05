@@ -14,6 +14,37 @@
     }
   });
 
+  const tabs = Array.from(document.querySelectorAll('.platform-tab'));
+  const panels = Array.from(document.querySelectorAll('.dl-panel'));
+
+  function selectPlatform(channel) {
+    tabs.forEach((tab) => {
+      const active = tab.dataset.platform === channel;
+      tab.setAttribute('aria-selected', String(active));
+      tab.tabIndex = active ? 0 : -1;
+    });
+    panels.forEach((panel) => {
+      panel.classList.toggle('active', panel.id === `panel-${channel}`);
+    });
+  }
+
+  tabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => selectPlatform(tab.dataset.platform));
+    tab.addEventListener('keydown', (event) => {
+      if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+      event.preventDefault();
+      const step = event.key === 'ArrowRight' ? 1 : -1;
+      const next = tabs[(index + step + tabs.length) % tabs.length];
+      selectPlatform(next.dataset.platform);
+      next.focus();
+    });
+  });
+
+  const initialPlatform = location.hash.slice(1);
+  if (tabs.some((tab) => tab.dataset.platform === initialPlatform)) {
+    selectPlatform(initialPlatform);
+  }
+
   const CHANNELS = ['win-x64', 'win-ia32', 'mac-arm64', 'mac-x64'];
   const SHA256 = /^[a-f0-9]{64}$/i;
 

@@ -22,7 +22,7 @@
         <a href="#browser">网页浏览</a>
         <a href="#how">使用方法</a>
         <a href="#faq">常见问题</a>
-        <a class="nav-cta" href="#download">下载</a>
+        <a class="nav-cta" href="download.html">下载</a>
       </nav>
       <button class="nav-toggle" id="navToggle" aria-label="展开导航" aria-expanded="false" aria-controls="nav">
         <span></span><span></span><span></span>
@@ -38,11 +38,11 @@
           <h1>把 Flash 小游戏，<br><em>留在自己电脑里。</em></h1>
           <p class="lead">把 4399 / 7k7k 的游戏页地址粘进来，自动取出游戏本体，存到本机。之后断网也能打开，不装 Adobe Flash，也不会弹出游戏网页里的广告。</p>
           <div class="actions">
-            <a class="btn btn-primary" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.4.0-win-x64-setup.exe" data-download="win-x64-setup">
-              下载 Windows 64 位
-              <span class="btn-note">安装版 · <span data-size="win-x64-setup">约 130 MB</span></span>
+            <a class="btn btn-primary" href="download.html">
+              下载 Flash Gamer
+              <span class="btn-note">四平台 · <span data-latest-version>v0.4.0</span></span>
             </a>
-            <a class="btn btn-ghost" href="#download">查看全部平台</a>
+            <a class="btn btn-ghost" href="#features">了解功能</a>
           </div>
           <ul class="hero-points">
             <li>Windows 32 / 64 位</li>
@@ -231,164 +231,28 @@
 
     <section class="section download-section" id="download">
       <div class="wrap">
-        <div class="section-head">
-          <span class="eyebrow">下载</span>
-          <h2>四个平台，选你的版本</h2>
-          <p>Windows 提供安装版与免安装 zip；macOS 提供 DMG 与 ZIP。功能一致，更新包按系统与架构分别提供。</p>
-        </div>
-        <div class="download-grid">
-          <article class="download-card primary">
-            <div class="download-head">
-              <h3>Windows 64 位</h3>
-              <span class="badge">推荐</span>
-            </div>
-            <p class="platform-line"><span data-version="win-x64">v0.4.0</span> · Windows 10 / 11</p>
-            <p>常规的安装版：可以选择安装目录，创建桌面与开始菜单快捷方式，卸载不删除游戏库。</p>
-            <ul class="check-list">
-              <li>NSIS 安装程序，可选安装路径</li>
-              <li>数据在用户目录，卸载不删除</li>
-              <li>支持软件内自动更新</li>
-            </ul>
-            <a class="btn btn-primary btn-block" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.4.0-win-x64-setup.exe" data-download="win-x64-setup">
-              下载安装版
+        <div class="download-banner">
+          <div class="download-banner-copy">
+            <span class="eyebrow">下载</span>
+            <h2>四个平台，一个下载页</h2>
+            <p>Windows 10 / 11 与 macOS（Apple 芯片 / Intel）都有对应构建。到下载页先选平台，再选安装版或免安装包；版本、大小和 SHA-256 都在同一页。</p>
+            <a class="btn btn-primary" href="download.html">
+              打开下载页
+              <span class="btn-note">当前 <span data-latest-version>v0.4.0</span></span>
             </a>
-            <p class="file-meta"><span data-file="win-x64-setup">FlashGamer-0.4.0-win-x64-setup.exe</span> · <span data-size="win-x64-setup">约 130 MB</span> · 未签名</p>
-            <a class="sub-download" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.4.0-win-x64.zip" data-download="win-x64-portable">免安装 zip <span data-size="win-x64-portable">约 170 MB</span></a>
-          </article>
-
-          <article class="download-card">
-            <div class="download-head">
-              <h3>Windows 32 位</h3>
-              <span class="badge ghost">ia32</span>
-            </div>
-            <p class="platform-line"><span data-version="win-ia32">v0.4.0</span> · Windows 10 / 11（32 位）</p>
-            <p>给仍在使用 32 位 Windows 的机器，或需要 32 位应用环境的系统。64 位系统请优先选择上面的版本。</p>
-            <ul class="check-list">
-              <li>NSIS 安装程序，可选安装路径</li>
-              <li>功能与 64 位版本一致</li>
-              <li>支持软件内自动更新</li>
+          </div>
+          <div class="download-banner-side">
+            <img src="assets/icon.png" alt="" width="78" height="78" loading="lazy">
+            <p class="banner-version"><span data-latest-version>v0.4.0</span> · 四平台同步</p>
+            <ul class="platform-list">
+              <li>Windows 64 位</li>
+              <li>Windows 32 位</li>
+              <li>macOS Apple 芯片</li>
+              <li>macOS Intel</li>
             </ul>
-            <a class="btn btn-ghost btn-block" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.4.0-win-ia32-setup.exe" data-download="win-ia32-setup">
-              下载 32 位安装版
-            </a>
-            <p class="file-meta"><span data-file="win-ia32-setup">FlashGamer-0.4.0-win-ia32-setup.exe</span> · <span data-size="win-ia32-setup">约 130 MB</span> · 未签名</p>
-            <a class="sub-download" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.4.0-win-ia32.zip" data-download="win-ia32-portable">免安装 zip <span data-size="win-ia32-portable">约 170 MB</span></a>
-          </article>
-
-          <article class="download-card">
-            <div class="download-head">
-              <h3>macOS Apple 芯片</h3>
-              <span class="badge">arm64</span>
-            </div>
-            <p class="platform-line"><span data-version="mac-arm64">v0.4.0</span> · M1 / M2 / M3 / M4</p>
-            <p>适用于 Apple 芯片的 Mac。打开 DMG 后，把 Flash Gamer 拖进「应用程序」。</p>
-            <ul class="check-list">
-              <li>原生 arm64 构建</li>
-              <li>DMG 安装，或 ZIP 免安装</li>
-              <li>数据存放在用户目录</li>
-            </ul>
-            <a class="btn btn-ghost btn-block" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.4.0-mac-arm64.dmg" data-download="mac-arm64-dmg">
-              下载 DMG
-            </a>
-            <p class="file-meta"><span data-file="mac-arm64-dmg">FlashGamer-0.4.0-mac-arm64.dmg</span> · <span data-size="mac-arm64-dmg">约 140 MB</span> · 未签名</p>
-            <a class="sub-download" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.4.0-mac-arm64.zip" data-download="mac-arm64-zip">ZIP 免安装包 <span data-size="mac-arm64-zip">约 140 MB</span></a>
-          </article>
-
-          <article class="download-card">
-            <div class="download-head">
-              <h3>macOS Intel</h3>
-              <span class="badge ghost">x64</span>
-            </div>
-            <p class="platform-line"><span data-version="mac-x64">v0.4.0</span> · Intel Mac</p>
-            <p>适用于 Intel 芯片的 Mac。打开 DMG 后，把 Flash Gamer 拖进「应用程序」。</p>
-            <ul class="check-list">
-              <li>原生 x64 构建</li>
-              <li>DMG 安装，或 ZIP 免安装</li>
-              <li>数据存放在用户目录</li>
-            </ul>
-            <a class="btn btn-ghost btn-block" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.4.0-mac-x64.dmg" data-download="mac-x64-dmg">
-              下载 DMG
-            </a>
-            <p class="file-meta"><span data-file="mac-x64-dmg">FlashGamer-0.4.0-mac-x64.dmg</span> · <span data-size="mac-x64-dmg">约 140 MB</span> · 未签名</p>
-            <a class="sub-download" href="https://github.com/ZSOF-Rui/flash-gamer/releases/latest/download/FlashGamer-0.4.0-mac-x64.zip" data-download="mac-x64-zip">ZIP 免安装包 <span data-size="mac-x64-zip">约 140 MB</span></a>
-          </article>
-        </div>
-
-        <p class="platform-note">macOS 包没有代码签名。首次打开若提示“无法验证开发者”，请右键 App → 打开，或执行 <code>xattr -dr com.apple.quarantine "/Applications/Flash Gamer.app"</code>。Windows 安装包同样未签名，SmartScreen 提示时可点“更多信息 → 仍要运行”。</p>
-
-        <div class="verify" id="verify">
-          <h3>SHA-256 校验值</h3>
-          <p class="muted">Windows PowerShell：<code>Get-FileHash .\FlashGamer-0.4.0-win-x64-setup.exe -Algorithm SHA256</code>；macOS：<code>shasum -a 256 FlashGamer-0.4.0-mac-arm64.dmg</code></p>
-          <div class="hash-row">
-            <span class="hash-label">Win64 安装版</span>
-            <code class="hash" data-hash="win-x64-setup">读取中…</code>
-            <button class="copy-btn" type="button" data-copy="win-x64-setup">复制</button>
-          </div>
-          <div class="hash-row">
-            <span class="hash-label">Win64 免安装</span>
-            <code class="hash" data-hash="win-x64-portable">读取中…</code>
-            <button class="copy-btn" type="button" data-copy="win-x64-portable">复制</button>
-          </div>
-          <div class="hash-row">
-            <span class="hash-label">Win32 安装版</span>
-            <code class="hash" data-hash="win-ia32-setup">读取中…</code>
-            <button class="copy-btn" type="button" data-copy="win-ia32-setup">复制</button>
-          </div>
-          <div class="hash-row">
-            <span class="hash-label">Win32 免安装</span>
-            <code class="hash" data-hash="win-ia32-portable">读取中…</code>
-            <button class="copy-btn" type="button" data-copy="win-ia32-portable">复制</button>
-          </div>
-          <div class="hash-row">
-            <span class="hash-label">macOS ARM DMG</span>
-            <code class="hash" data-hash="mac-arm64-dmg">读取中…</code>
-            <button class="copy-btn" type="button" data-copy="mac-arm64-dmg">复制</button>
-          </div>
-          <div class="hash-row">
-            <span class="hash-label">macOS ARM ZIP</span>
-            <code class="hash" data-hash="mac-arm64-zip">读取中…</code>
-            <button class="copy-btn" type="button" data-copy="mac-arm64-zip">复制</button>
-          </div>
-          <div class="hash-row">
-            <span class="hash-label">macOS Intel DMG</span>
-            <code class="hash" data-hash="mac-x64-dmg">读取中…</code>
-            <button class="copy-btn" type="button" data-copy="mac-x64-dmg">复制</button>
-          </div>
-          <div class="hash-row">
-            <span class="hash-label">macOS Intel ZIP</span>
-            <code class="hash" data-hash="mac-x64-zip">读取中…</code>
-            <button class="copy-btn" type="button" data-copy="mac-x64-zip">复制</button>
+            <p class="banner-note">安装版与免安装包均由 GitHub Actions 构建。</p>
           </div>
         </div>
-
-        <p class="muted small">软件内更新会按当前平台读取对应清单：Windows 下载安装程序，macOS 下载 DMG。更新只替换程序文件，本地游戏库不受影响。</p>
-
-        <div class="release-history">
-          <h3>版本记录</h3>
-          <div class="history-row">
-            <span class="history-version">v0.4.0</span>
-            <span>四平台构建、自定义 SWF 下载目录、CC BY-NC 4.0 开源</span>
-            <a href="https://github.com/ZSOF-Rui/flash-gamer/releases/tag/v0.4.0">Release</a>
-          </div>
-          <div class="history-row">
-            <span class="history-version">v0.3.3</span>
-            <span>停止运行、圆角图标（仅 Windows 64 位）</span>
-            <a href="https://github.com/ZSOF-Rui/flash-gamer/releases/tag/v0.3.3">Release</a>
-          </div>
-          <div class="history-row">
-            <span class="history-version">v0.3.2</span>
-            <span>网页内 Flash 播放、双源软件更新（仅 Windows 64 位）</span>
-            <a href="https://github.com/ZSOF-Rui/flash-gamer/releases/tag/v0.3.2">Release</a>
-          </div>
-          <div class="history-row">
-            <span class="history-version">v0.3.1</span>
-            <span>内置浏览器、登录共享、加壳修复（仅 Windows 64 位）</span>
-            <a href="https://github.com/ZSOF-Rui/flash-gamer/releases/tag/v0.3.1">Release</a>
-          </div>
-          <p class="muted small">更早的版本见 <a href="https://github.com/ZSOF-Rui/flash-gamer/releases">全部 Release</a>。</p>
-        </div>
-
-        <p class="disclaimer">Flash Gamer 只提供播放工具，不包含任何游戏文件。游戏版权归原作者与平台所有，请仅用于个人离线游玩。软件以 CC BY-NC 4.0 许可发布，仅限非商业使用。</p>
       </div>
     </section>
   </main>
@@ -402,6 +266,7 @@
         <span>Flash Gamer</span>
       </div>
       <p>本地运行，不上传游戏与账号。游戏版权归原作者与平台所有。</p>
+      <a href="download.html">下载</a>
       <a href="https://github.com/ZSOF-Rui/flash-gamer" target="_blank" rel="noreferrer">GitHub</a>
       <a href="https://github.com/ZSOF-Rui/flash-gamer/blob/main/LICENSE" target="_blank" rel="noreferrer">CC BY-NC 4.0</a>
     </div>

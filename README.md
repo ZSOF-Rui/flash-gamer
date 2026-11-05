@@ -92,7 +92,7 @@ npm start
 
 ## 打包
 
-需要 Node.js 24 及以上。安装依赖后按目标平台执行：
+对外发布的四个平台产物全部由 GitHub Actions 构建；下面的本机命令只用于开发调试，不作为发布产物：
 
 ```bash
 npm install
@@ -117,7 +117,9 @@ npx electron-builder --win nsis zip --x64 --ia32 \
 1. `windows-latest` 构建 x64 / ia32 的 NSIS 与 zip；
 2. `macos-latest` 构建 x64 / arm64 的 DMG 与 zip；
 3. 汇总全部产物，运行 `scripts/make-update-manifests.js` 生成四个更新清单；
-4. 创建或更新对应标签的 GitHub Release，并部署 `site/` 到 GitHub Pages。
+4. 创建或更新对应标签的 GitHub Release，并把站点（`index.html`、`download.html`、`assets/`、`updates/`）部署到 GitHub Pages。
+
+发布流程不在本机编译或上传二进制；需要重跑时，在 Actions 里手动运行 `Build and release` 并填入 tag 即可。
 
 构建未签名产物，不需要证书 Secrets；macOS 的 `identity` 已关闭。日常的依赖升级由 [`.github/dependabot.yml`](.github/dependabot.yml) 每周检查 npm 与 GitHub Actions。
 
@@ -151,9 +153,9 @@ npx electron-builder --win nsis zip --x64 --ia32 \
 
 ## 官网
 
-`site/` 是纯静态站点（无构建步骤），推送到 `main` 后由 [`.github/workflows/pages.yml`](.github/workflows/pages.yml) 发布到 GitHub Pages；发布 `v*` 标签时 `build.yml` 会先生成更新清单再部署一次。`site/dist/` 是同一份站点内容（含 `updates/` 清单）的部署副本，用于 Qoder Sites。
+`site/` 是纯静态站点（无构建步骤）：首页介绍功能，`download.html` 负责按平台选择安装版或免安装包。推送到 `main` 后由 [`.github/workflows/pages.yml`](.github/workflows/pages.yml) 只把这几个公开文件发布到 GitHub Pages；发布 `v*` 标签时 `build.yml` 会先生成更新清单再部署一次。`site/dist/` 是同一份站点内容（含 `updates/` 清单）的部署副本，用于 Qoder Sites。
 
-下载区会读取 `updates/<channel>.json` 自动填充版本、文件名、大小与 SHA-256；清单读取失败时保留页面里的静态兜底文案。本地预览时用任意静态服务器指向 `site/` 即可。
+下载页会读取 `updates/<channel>.json` 自动填充版本、文件名、大小与 SHA-256；清单读取失败时保留页面里的静态兜底文案。本地预览时用任意静态服务器指向 `site/` 即可。
 
 ## 数据位置
 
