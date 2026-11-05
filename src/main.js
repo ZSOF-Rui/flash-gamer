@@ -7,7 +7,8 @@ const { inspectPage } = require('./lib/inspector');
 const { fetchBinary } = require('./lib/fetcher');
 const { ensureDir, newId, sha256, isSwf, safeFileName, titleFromFileName } = require('./lib/util');
 const { isBlockedUrl } = require('./lib/blocklist');
-const { Updater } = require('./lib/updater');
+const { Updater, updateChannel } = require('./lib/updater');
+const { loadSettings, saveSettings, isWritableDir, isInside } = require('./lib/settings');
 
 const APP_NAME = 'Flash Gamer';
 app.setName(APP_NAME);
@@ -33,6 +34,9 @@ function writableDir(dir) {
 function resolveDataDir() {
   if (process.env.AP_DATA_DIR) return process.env.AP_DATA_DIR;
   if (!app.isPackaged) return path.join(__dirname, '..', 'data');
+  if (process.platform === 'darwin') {
+    return path.join(app.getPath('userData'), 'FlashGamerData');
+  }
   const base = process.env.PORTABLE_EXECUTABLE_DIR || path.dirname(app.getPath('exe'));
   if (fs.existsSync(path.join(base, 'installed.marker'))) {
     return path.join(app.getPath('userData'), 'FlashGamerData');
@@ -43,7 +47,18 @@ function resolveDataDir() {
 }
 
 const DATA_DIR = resolveDataDir();
-const LEGACY_DATA_DIR = app.isPackaged
+const SETTINGS = loadSettings(DATA_DIR);
+let LIBRARY_DIR = DATA_DIR;
+let libraryWarning = '';
+if (SETTINGS.libraryDir) {
+  const custom = path.resolve(SETTINGS.libraryDir);
+  if (isWritableDir(custom)) {
+    LIBRARY_DIR = custom;
+  } else {
+    libraryWarning = `自定义下载目录不可写，已临时使用默认目录：${custom}`;
+  }
+}
+const LEGACY_DATA_DIR = app.isPackaged && !SETTINGS.libraryDir
   ? path.join(path.dirname(DATA_DIR), 'AppProfessorData')
   : null;
 
@@ -545,6 +560,49 @@ function isBrowserGuestContext(details) {
   return !!details.webContentsId && browserGuestIds.has(details.webContentsId);
 }
 
+async function applyLibraryDir({ dir, migrate } = {}) {
+  const raw = String(dir || '').trim();
+  if (!raw) throw new Error('请选择目录');
+  const target = path.resolve(raw);
+  const current = path.resolve(LIBRARY_DIR);
+  if (target === current) return { changed: false };
+  if (isInside(current, target)) throw new Error('新目录不能放在当前游戏库目录里面');
+  if (!isWritableDir(target)) throw new Error('目录不可写，请换一个位置');
+
+  const targetHasLibrary = fs.existsSync(path.join(target, 'library.json'));
+  let copied = 0;
+  let usedExisting = false;
+
+  if (targetHasLibrary) {
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      buttons: ['使用目标目录', '取消'],
+      defaultId: 1,
+      cancelId: 1,
+      title: '目标目录已有游戏库',
+      message: '新目录里已经有一个游戏库',
+      detail: '切换后将显示该目录里的游戏，当前目录的文件不会被删除。'
+    });
+    if (response !== 0) return { changed: false, canceled: true };
+    usedExisting = true;
+  } else if (migrate && lib.list().length) {
+    await fs.promises.cp(path.join(current, 'items'), path.join(target, 'items'), {
+      recursive: true,
+      force: false,
+      errorOnExist: false
+    });
+    const db = path.join(current, 'library.json');
+    if (fs.existsSync(db)) await fs.promises.copyFile(db, path.join(target, 'library.json'));
+    copied = lib.list().length;
+  }
+
+  const stored = target === path.resolve(DATA_DIR) ? '' : target;
+  SETTINGS.libraryDir = stored;
+  saveSettings(DATA_DIR, SETTINGS);
+  LIBRARY_DIR = target;
+  return { changed: true, restartRequired: true, copied, usedExisting, libraryDir: target };
+}
+
 async function registerIpc() {
   ipcMain.handle('library:list', () => lib.list());
 
@@ -593,7 +651,12 @@ async function registerIpc() {
 
   ipcMain.handle('browser:flashState', () => ({ ready: browserFlashOk }));
 
-  ipcMain.handle('update:version', () => ({ version: app.getVersion() }));
+  ipcMain.handle('update:version', () => ({
+    version: app.getVersion(),
+    platform: process.platform,
+    arch: process.arch,
+    channel: updateChannel()
+  }));
 
   ipcMain.handle('update:check', () => updater.check(app.getVersion()));
 
@@ -607,9 +670,56 @@ async function registerIpc() {
 
   ipcMain.handle('update:install', async () => {
     if (!installerPath || !fs.existsSync(installerPath)) throw new Error('更新包不存在，请重新下载');
+    const ext = path.extname(installerPath).toLowerCase();
+    if (process.platform === 'darwin') {
+      if (ext === '.dmg') {
+        const err = await shell.openPath(installerPath);
+        if (err) throw new Error(err);
+        return { opened: true, message: '已打开 DMG，请把 Flash Gamer 拖进「应用程序」完成更新，然后重新打开。' };
+      }
+      shell.showItemInFolder(installerPath);
+      return { opened: true, message: '更新包已下载。请解压后把 Flash Gamer 拖进「应用程序」。' };
+    }
     const err = await shell.openPath(installerPath);
     if (err) throw new Error(err);
     setTimeout(() => { try { app.quit(); } catch {} }, 1200);
+    return { opened: true, message: '安装程序已启动，应用即将退出。' };
+  });
+
+  ipcMain.handle('settings:get', () => ({
+    libraryDir: LIBRARY_DIR,
+    defaultDir: DATA_DIR,
+    custom: !!SETTINGS.libraryDir,
+    warning: libraryWarning,
+    itemCount: lib.list().length,
+    totalSize: lib.list().reduce((n, it) => n + (Number(it.size) || 0), 0),
+    platform: process.platform,
+    arch: process.arch,
+    channel: updateChannel(),
+    version: app.getVersion()
+  }));
+
+  ipcMain.handle('settings:chooseLibraryDir', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title: '选择 SWF 下载目录',
+      buttonLabel: '使用此目录',
+      defaultPath: LIBRARY_DIR,
+      properties: ['openDirectory', 'createDirectory']
+    });
+    return canceled || !filePaths.length ? '' : filePaths[0];
+  });
+
+  ipcMain.handle('settings:setLibraryDir', (_e, payload) => applyLibraryDir(payload));
+
+  ipcMain.handle('settings:openLibraryDir', async () => {
+    const err = await shell.openPath(LIBRARY_DIR);
+    if (err) throw new Error(err);
+    return true;
+  });
+
+  ipcMain.handle('app:restart', () => {
+    app.relaunch();
+    app.exit(0);
     return true;
   });
 
@@ -1073,7 +1183,7 @@ if (!gotLock) {
   });
 
   app.whenReady().then(async () => {
-    lib = new Library(DATA_DIR);
+    lib = new Library(LIBRARY_DIR);
     // 更新检查独立会话：跟随系统代理，不受浏览器代理与请求头注入影响
     const updateSession = session.fromPartition('flash-gamer-updater');
     updater = new Updater({
@@ -1163,5 +1273,11 @@ if (!gotLock) {
     });
   });
 
-  app.on('window-all-closed', () => { app.quit(); });
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+  });
+
+  app.on('activate', () => {
+    if (!mainWindow && srv) createWindow();
+  });
 }

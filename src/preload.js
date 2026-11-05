@@ -33,6 +33,11 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('game:window', handler);
   },
   appVersion: () => ipcRenderer.invoke('update:version'),
+  getSettings: () => ipcRenderer.invoke('settings:get'),
+  chooseLibraryDir: () => ipcRenderer.invoke('settings:chooseLibraryDir'),
+  setLibraryDir: (payload) => ipcRenderer.invoke('settings:setLibraryDir', payload),
+  openLibraryDir: () => ipcRenderer.invoke('settings:openLibraryDir'),
+  restartApp: () => ipcRenderer.invoke('app:restart'),
   checkUpdate: () => ipcRenderer.invoke('update:check'),
   downloadUpdate: () => ipcRenderer.invoke('update:download'),
   installUpdate: () => ipcRenderer.invoke('update:install'),

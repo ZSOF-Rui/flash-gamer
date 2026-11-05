@@ -480,14 +480,62 @@ code {
   font-size: 12px;
   font-weight: 600;
 }
+.badge.ghost { background: #eef2f8; color: var(--ink-soft); }
 .download-card > p { margin: 0 0 18px; color: var(--muted); font-size: 14.5px; }
+.download-card .platform-line {
+  margin: -2px 0 10px;
+  color: var(--brand-dark);
+  font-size: 13px;
+  font-weight: 600;
+}
 .download-card .check-list { margin-bottom: 22px; }
 .download-card .btn { margin-top: auto; }
 .file-meta {
   margin: 12px 0 0 !important;
   color: var(--muted);
   font-size: 12.5px;
+  word-break: break-all;
 }
+.sub-download {
+  display: block;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--brand);
+}
+.sub-download span { color: var(--muted); font-size: 12px; }
+
+.platform-note {
+  margin: 22px 0 0;
+  padding: 14px 18px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.release-history {
+  margin-top: 30px;
+  padding: 24px 26px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.release-history h3 { margin: 0 0 12px; font-size: 17px; }
+.history-row {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+.history-row:first-of-type { border-top: 0; }
+.history-version { font-weight: 700; color: var(--ink); }
+.history-row a { font-size: 13px; white-space: nowrap; }
+.release-history .small { margin: 12px 0 0; }
 
 .verify {
   margin-top: 30px;
@@ -599,6 +647,8 @@ code {
   .grid-3, .steps, .download-grid { grid-template-columns: 1fr; }
   .hash-row { grid-template-columns: 1fr auto; }
   .hash-label { grid-column: 1 / -1; }
+  .history-row { grid-template-columns: 64px 1fr; }
+  .history-row a { grid-column: 2; }
   .faq summary { font-size: 15px; }
   .faq details p { padding-right: 0; }
   .trust-inner { justify-content: flex-start; }

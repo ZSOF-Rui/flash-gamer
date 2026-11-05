@@ -1,29 +1,46 @@
 {
   "name": "flash-gamer",
-  "version": "0.3.3",
-  "private": true,
+  "version": "0.4.0",
+  "private": false,
+  "license": "CC-BY-NC-4.0",
   "description": "Flash Gamer：Flash 小游戏离线馆，提取 SWF、本地运行、无网页广告",
+  "author": "ZSOF-Rui",
+  "homepage": "https://flash.828696.xyz/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ZSOF-Rui/flash-gamer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ZSOF-Rui/flash-gamer/issues"
+  },
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "vendor": "node scripts/vendor-ruffle.js",
     "postinstall": "node scripts/vendor-ruffle.js",
-    "dist": "electron-builder --win nsis portable --x64",
-    "dist:installer": "electron-builder --win nsis --x64"
+    "dist": "npm run dist:win",
+    "dist:win": "electron-builder --win nsis zip --x64 --ia32",
+    "dist:mac": "electron-builder --mac dmg zip --x64 --arm64",
+    "dist:installer": "electron-builder --win nsis --x64 --ia32",
+    "manifests": "node scripts/make-update-manifests.js",
+    "icns": "node scripts/make-icns.js"
   },
   "dependencies": {
     "@ruffle-rs/ruffle": "0.8.0-nightly.2026.10.29"
   },
   "devDependencies": {
-    "electron": "^45.1.0",
+    "electron": "^43.8.7",
     "electron-builder": "^26.18.0"
   },
   "build": {
     "appId": "com.flashgamer.desktop",
     "productName": "Flash Gamer",
     "asar": true,
+    "npmRebuild": false,
+    "artifactName": "FlashGamer-${version}-${os}-${arch}.${ext}",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": [
       "src/**/*",
@@ -36,13 +53,15 @@
         {
           "target": "nsis",
           "arch": [
-            "x64"
+            "x64",
+            "ia32"
           ]
         },
         {
-          "target": "portable",
+          "target": "zip",
           "arch": [
-            "x64"
+            "x64",
+            "ia32"
           ]
         }
       ]
@@ -57,11 +76,34 @@
       "shortcutName": "Flash Gamer",
       "language": "2052",
       "deleteAppDataOnUninstall": false,
-      "artifactName": "FlashGamer-${version}-setup.${ext}",
+      "artifactName": "FlashGamer-${version}-win-${arch}-setup.${ext}",
       "include": "build/installer.nsh"
     },
-    "portable": {
-      "artifactName": "FlashGamer-${version}-portable.exe"
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "public.app-category.games",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "dmg": {
+      "artifactName": "FlashGamer-${version}-mac-${arch}.${ext}"
     }
   }
 }

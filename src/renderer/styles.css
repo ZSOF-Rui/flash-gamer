@@ -216,7 +216,34 @@ button:disabled { opacity: .45; cursor: default; }
 .foot-right { display: flex; align-items: center; gap: 14px; }
 
 .update-btn { width: 100%; margin-top: 8px; }
+.update-btn + .update-btn { margin-top: 6px; }
 .update-btn.has-update { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-dark); }
+
+.settings-card { width: 640px; }
+.dir-row { display: flex; gap: 10px; margin: 12px 0; }
+.dir-row input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: #f7f8fa;
+  color: #3b4250;
+  font-size: 12.5px;
+  outline: none;
+}
+.dir-migrate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: #3b4250;
+  font-size: 13px;
+}
+.dir-migrate input { width: 16px; height: 16px; margin: 0; }
+#libDirHint { margin: 0 0 14px; }
+.dir-actions { flex-wrap: wrap; }
 
 .update-card { width: 560px; }
 .update-notes {

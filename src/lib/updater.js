@@ -5,18 +5,31 @@ const crypto = require('crypto');
 const { Readable } = require('stream');
 const { ensureDir, safeFileName } = require('./util');
 
-const DEFAULT_SOURCES = [
-  'https://flash-gamer-ch09cuq83vg.qoder.website/updates/win-x64.json',
-  'https://flash.828696.xyz/updates/win-x64.json',
-  'https://zsof-rui.github.io/flash-gamer/updates/win-x64.json'
+const ORIGINS = [
+  'https://flash-gamer-ch09cuq83vg.qoder.website',
+  'https://flash.828696.xyz',
+  'https://zsof-rui.github.io/flash-gamer'
 ];
 
 const CHECK_TIMEOUT = 12000;
-const MAX_ASSET_SIZE = 400 * 1024 * 1024;
+const MAX_ASSET_SIZE = 500 * 1024 * 1024;
+const ASSET_KEYS = ['setup', 'portable', 'dmg', 'zip'];
 
-function sourceList() {
+function updateChannel(platform = process.platform, arch = process.arch) {
+  if (platform === 'win32') return `win-${arch}`;
+  if (platform === 'darwin') return `mac-${arch}`;
+  return `${platform}-${arch}`;
+}
+
+function defaultSources(channel = updateChannel()) {
+  return ORIGINS.map((origin) => `${origin}/updates/${channel}.json`);
+}
+
+const DEFAULT_SOURCES = defaultSources();
+
+function sourceList(channel = updateChannel()) {
   const custom = String(process.env.AP_UPDATE_SOURCES || '').split(/[\s,]+/).filter(Boolean);
-  return custom.length ? custom : DEFAULT_SOURCES;
+  return custom.length ? custom : defaultSources(channel);
 }
 
 function parseVersion(v) {
@@ -55,18 +68,25 @@ function normalizeManifest(raw, baseUrl) {
   if (!raw || typeof raw !== 'object') return null;
   if (!parseVersion(raw.version)) return null;
   const assets = raw.assets && typeof raw.assets === 'object' ? raw.assets : {};
-  const setup = normalizeAsset(assets.setup, baseUrl);
-  const portable = normalizeAsset(assets.portable, baseUrl);
-  if (!setup && !portable) return null;
+  const normalized = {};
+  for (const key of ASSET_KEYS) normalized[key] = normalizeAsset(assets[key], baseUrl);
+  if (!ASSET_KEYS.some((key) => normalized[key])) return null;
   let notes = raw.notes;
   if (Array.isArray(notes)) notes = notes.map((s) => String(s)).join('\n');
   return {
     version: String(raw.version).trim(),
     publishedAt: raw.publishedAt ? String(raw.publishedAt) : '',
     notes: String(notes || '').trim(),
-    setup,
-    portable
+    ...normalized
   };
+}
+
+function pickAsset(manifest) {
+  const order = process.platform === 'darwin' ? ['dmg', 'zip'] : ['setup', 'zip', 'portable'];
+  for (const key of order) {
+    if (manifest[key]) return { key, asset: manifest[key] };
+  }
+  return null;
 }
 
 async function fetchJson(url, fetchImpl) {
@@ -87,23 +107,32 @@ async function fetchJson(url, fetchImpl) {
   }
 }
 
+function defaultAssetName(kind) {
+  if (kind === 'dmg') return 'FlashGamer-update.dmg';
+  if (kind === 'zip') return 'FlashGamer-update.zip';
+  return 'FlashGamer-update.exe';
+}
+
 class Updater {
-  constructor({ dataDir, fetch }) {
+  constructor({ dataDir, fetch, channel }) {
     this.dir = path.join(dataDir, 'updates');
     this.pending = null;
     this.downloading = false;
+    this.channel = channel || updateChannel();
     // 独立 session 的 fetch：走系统代理，避开应用内本地代理
     this.fetch = typeof fetch === 'function' ? fetch : net.fetch.bind(net);
   }
 
   async check(currentVersion) {
-    const sources = sourceList();
+    const sources = sourceList(this.channel);
     const results = await Promise.all(sources.map(async (base) => {
       const url = `${base}${base.includes('?') ? '&' : '?'}t=${Date.now()}`;
       try {
         const manifest = normalizeManifest(await fetchJson(url, this.fetch), base);
         if (!manifest) throw new Error('清单格式不正确');
-        return { base, manifest };
+        const picked = pickAsset(manifest);
+        if (!picked) throw new Error('清单没有适用于当前平台的安装包');
+        return { base, manifest, picked };
       } catch (e) {
         return { base, error: String(e.message || e) };
       }
@@ -119,8 +148,7 @@ class Updater {
       const version = best.manifest.version;
       const candidates = ok
         .filter((r) => r.manifest.version === version)
-        .map((r) => ({ source: r.base, asset: r.manifest.setup || r.manifest.portable }))
-        .filter((c) => c.asset);
+        .map((r) => ({ source: r.base, kind: r.picked.key, asset: r.picked.asset }));
       chosen = { version, notes: best.manifest.notes, publishedAt: best.manifest.publishedAt, candidates };
     }
     this.pending = chosen;
@@ -132,6 +160,8 @@ class Updater {
       notes: chosen ? chosen.notes : '',
       publishedAt: chosen ? chosen.publishedAt : '',
       size: chosen ? chosen.candidates[0].asset.size : 0,
+      assetKind: chosen ? chosen.candidates[0].kind : '',
+      channel: this.channel,
       sources: results.map((r) => ({
         host: (() => { try { return new URL(r.base).host; } catch { return r.base; } })(),
         ok: !!r.manifest,
@@ -149,8 +179,8 @@ class Updater {
       const failures = [];
       for (const c of this.pending.candidates) {
         try {
-          const file = await this.fetchAsset(c.asset, onProgress);
-          return { path: file, version: this.pending.version };
+          const file = await this.fetchAsset(c.asset, c.kind, onProgress);
+          return { path: file, version: this.pending.version, assetKind: c.kind };
         } catch (e) {
           failures.push(String(e.message || e));
         }
@@ -161,11 +191,11 @@ class Updater {
     }
   }
 
-  async fetchAsset(asset, onProgress) {
+  async fetchAsset(asset, kind, onProgress) {
     ensureDir(this.dir);
-    let name = 'FlashGamer-update.exe';
+    let name = defaultAssetName(kind);
     try { name = safeFileName(path.basename(new URL(asset.url).pathname)) || name; } catch {}
-    if (!/\.exe$/i.test(name)) name += '.exe';
+    if (!path.extname(name)) name += path.extname(defaultAssetName(kind));
     const file = path.join(this.dir, name);
     const part = `${file}.part`;
 
@@ -216,4 +246,12 @@ class Updater {
   }
 }
 
-module.exports = { Updater, compareVersions, parseVersion, DEFAULT_SOURCES };
+module.exports = {
+  Updater,
+  compareVersions,
+  parseVersion,
+  updateChannel,
+  defaultSources,
+  DEFAULT_SOURCES,
+  ORIGINS
+};

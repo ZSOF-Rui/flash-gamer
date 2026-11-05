@@ -11,6 +11,9 @@ const state = {
   windows: new Set()
 };
 
+const appMeta = { platform: '', arch: '', channel: '', version: '' };
+const settingsState = { current: '', defaultDir: '', custom: false };
+
 const PLACEHOLDER_TIP = '左侧选择游戏，或在上方粘贴游戏页链接';
 
 function setPlaceholderTip(text) {
@@ -351,6 +354,76 @@ window.api.runningWindows().then((ids) => {
   updateRunButtons();
 }).catch(() => {});
 
+/* ---------- 下载目录设置 ---------- */
+
+function closeSettings() { $('#settingsModal').classList.add('hidden'); }
+
+async function openSettings() {
+  try {
+    const s = await window.api.getSettings();
+    settingsState.current = s.libraryDir;
+    settingsState.defaultDir = s.defaultDir;
+    settingsState.custom = s.custom;
+    $('#libDirInput').value = s.libraryDir;
+    $('#dirMigrate').checked = true;
+    $('#btnResetDir').disabled = s.libraryDir === s.defaultDir;
+    const bits = [s.custom ? '当前使用自定义目录' : '当前使用默认目录'];
+    if (s.itemCount) bits.push(`${s.itemCount} 个游戏 · ${fmt(s.totalSize)}`);
+    if (s.warning) bits.push(s.warning);
+    $('#libDirHint').textContent = bits.join(' · ');
+    $('#btnLibraryDir').title = `下载目录：${s.libraryDir}`;
+    $('#btnSaveDir').disabled = false;
+    $('#btnSaveDir').textContent = '保存并重启';
+    $('#settingsModal').classList.remove('hidden');
+  } catch (e) {
+    toast('读取设置失败：' + errText(e));
+  }
+}
+
+$('#btnLibraryDir').onclick = openSettings;
+$('#btnChooseDir').onclick = async () => {
+  const p = await window.api.chooseLibraryDir();
+  if (!p) return;
+  $('#libDirInput').value = p;
+  $('#libDirHint').textContent = p === settingsState.current ? '目录没有变化' : '保存并重启后生效';
+};
+$('#btnResetDir').onclick = () => {
+  $('#libDirInput').value = settingsState.defaultDir;
+  $('#libDirHint').textContent = '保存并重启后恢复默认目录';
+};
+$('#btnOpenLibDir').onclick = () => {
+  window.api.openLibraryDir().catch((e) => toast('打开目录失败：' + errText(e)));
+};
+$('#btnCancelSettings').onclick = closeSettings;
+$('#settingsModal').addEventListener('click', (e) => { if (e.target.id === 'settingsModal') closeSettings(); });
+$('#btnSaveDir').onclick = async () => {
+  const dir = $('#libDirInput').value.trim();
+  const migrate = $('#dirMigrate').checked;
+  if (!dir) return toast('请先选择目录');
+  if (dir === settingsState.current) {
+    closeSettings();
+    return;
+  }
+  const btn = $('#btnSaveDir');
+  btn.disabled = true;
+  btn.textContent = '正在保存…';
+  try {
+    const res = await window.api.setLibraryDir({ dir, migrate });
+    if (!res.changed) {
+      btn.disabled = false;
+      btn.textContent = '保存并重启';
+      return;
+    }
+    closeSettings();
+    toast(res.copied ? `已复制 ${res.copied} 个游戏，正在重启…` : '目录已保存，正在重启…');
+    setTimeout(() => window.api.restartApp(), 700);
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '保存并重启';
+    toast('保存失败：' + errText(e));
+  }
+};
+
 /* ---------- 软件更新 ---------- */
 
 const upd = { info: null, downloaded: null, busy: false };
@@ -365,11 +438,16 @@ function setUpdateButton(label, hasUpdate) {
   b.classList.toggle('has-update', !!hasUpdate);
 }
 
+function installActionLabel() {
+  if (appMeta.platform === 'darwin') return upd.downloaded ? '打开安装包' : '下载并打开 DMG';
+  return upd.downloaded ? '立即安装' : '下载并安装';
+}
+
 function showUpdate(info) {
   upd.info = info;
   $('#updateTitle').textContent = `发现新版本 v${info.version}`;
   const bits = [`当前 v${info.current}`];
-  if (info.size) bits.push(`安装包 ${fmt(info.size)}`);
+  if (info.size) bits.push(`更新包 ${fmt(info.size)}`);
   if (info.publishedAt) {
     const d = new Date(info.publishedAt);
     if (!Number.isNaN(d.getTime())) bits.push(d.toLocaleDateString('zh-CN'));
@@ -380,7 +458,7 @@ function showUpdate(info) {
   $('#updateProgressBar').style.width = '0%';
   $('#updateState').textContent = '';
   const action = $('#btnUpdateAction');
-  action.textContent = upd.downloaded ? '立即安装' : '下载并安装';
+  action.textContent = installActionLabel();
   action.disabled = false;
   $('#updateModal').classList.remove('hidden');
 }
@@ -422,11 +500,15 @@ async function downloadUpdate() {
     action.disabled = true;
     action.textContent = '正在启动…';
     try {
-      await window.api.installUpdate();
-      $('#updateState').textContent = '安装程序已启动，应用即将退出。';
+      const res = await window.api.installUpdate();
+      $('#updateState').textContent = (res && res.message) || '安装程序已启动，应用即将退出。';
+      if (appMeta.platform === 'darwin') {
+        action.disabled = false;
+        action.textContent = '打开安装包';
+      }
     } catch (e) {
       action.disabled = false;
-      action.textContent = '立即安装';
+      action.textContent = '打开安装包';
       $('#updateState').textContent = '启动安装程序失败：' + errText(e);
     }
     return;
@@ -443,7 +525,7 @@ async function downloadUpdate() {
     $('#updateProgressBar').style.width = '100%';
     $('#updateState').textContent = '下载完成，SHA-256 校验通过';
     action.disabled = false;
-    action.textContent = '立即安装';
+    action.textContent = installActionLabel();
   } catch (e) {
     action.disabled = false;
     action.textContent = '重试下载';
@@ -472,7 +554,13 @@ window.api.onUpdateAvailable((info) => {
   toast(`发现新版本 v${info.version}`);
 });
 
-window.api.appVersion().then((r) => { $('#appVersion').textContent = `v${r.version}`; }).catch(() => {});
+window.api.appVersion().then((r) => {
+  Object.assign(appMeta, r);
+  const platform = r.platform === 'darwin'
+    ? (r.arch === 'arm64' ? 'macOS ARM' : 'macOS Intel')
+    : (r.arch === 'ia32' ? 'Win32' : 'Win64');
+  $('#appVersion').textContent = `v${r.version} · ${platform}`;
+}).catch(() => {});
 
 window.__apSelect = select;
 window.__apRefresh = refresh;

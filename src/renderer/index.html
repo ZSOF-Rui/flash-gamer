@@ -31,6 +31,7 @@
       <div id="list" class="list"></div>
       <div class="side-foot">
         <div id="cacheLine" class="muted">缓存 0 B</div>
+        <button id="btnLibraryDir" class="ghost update-btn" title="选择游戏文件的保存位置">下载目录</button>
         <button id="btnUpdate" class="ghost update-btn">检查更新</button>
       </div>
     </aside>
@@ -77,6 +78,25 @@
       <div class="modal-actions">
         <button id="btnCancel" class="ghost">取消</button>
         <button id="btnConfirm" class="primary" disabled>添加</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-card settings-card">
+      <h3>SWF 下载目录</h3>
+      <p class="muted">解析和导入的游戏（SWF、封面与缓存）都保存在这个目录。修改后需要重启应用。</p>
+      <div class="dir-row">
+        <input id="libDirInput" type="text" readonly spellcheck="false">
+        <button id="btnChooseDir" class="ghost">选择…</button>
+      </div>
+      <label class="dir-migrate"><input id="dirMigrate" type="checkbox" checked> 保存时把现有游戏复制到新目录</label>
+      <p id="libDirHint" class="muted small"></p>
+      <div class="modal-actions dir-actions">
+        <button id="btnOpenLibDir" class="ghost">打开目录</button>
+        <button id="btnResetDir" class="ghost">恢复默认</button>
+        <button id="btnCancelSettings" class="ghost">取消</button>
+        <button id="btnSaveDir" class="primary">保存并重启</button>
       </div>
     </div>
   </div>
