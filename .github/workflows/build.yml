@@ -30,7 +30,7 @@ jobs:
     name: Windows x64 + ia32
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || inputs.tag || github.ref }}
       - uses: actions/setup-node@v4
@@ -51,7 +51,7 @@ jobs:
     name: macOS Intel + Apple Silicon
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || inputs.tag || github.ref }}
       - uses: actions/setup-node@v4
@@ -79,7 +79,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || inputs.tag || github.ref }}
       - uses: actions/setup-node@v4
