@@ -39,7 +39,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run dist:win
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows
           if-no-files-found: error
@@ -60,7 +60,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run dist:mac
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos
           if-no-files-found: error
@@ -110,7 +110,7 @@ jobs:
           cp site/index.html site/download.html _site/
           cp -R site/assets _site/assets
           cp -R site/updates _site/updates
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: update-manifests
           path: site/updates/*.json
