@@ -1,17 +1,17 @@
 {
-  "version": "0.3.3",
-  "publishedAt": "2026-11-01",
-  "notes": "· 新增「停止运行」：卸载主窗口播放器，并关闭所有独立游戏窗口，之后可重新开始\n· 应用图标改为透明圆角，桌面与开始菜单快捷方式同步更新",
+  "version": "0.4.0",
+  "publishedAt": "2026-11-05",
+  "notes": "Flash Gamer v0.4.0\n· 新增 Windows 32 位、Windows 64 位、macOS Intel 与 macOS Apple 芯片四个平台构建，源码和 GitHub Actions 构建流程一并公开。\n· Electron 固定在 43.x：官方从 44 起不再提供 Windows 32 位二进制，43.x 是仍覆盖四个目标平台的最后分支。\n· 新增自定义 SWF 下载目录：主界面点「下载目录」即可选择保存位置，可把现有游戏库复制到新目录，重启后生效。\n· 更新器按平台与架构读取对应清单；macOS 使用 DMG / ZIP 更新包。\n· 官网改为四平台下载，并提供各安装包的 SHA-256 校验值。\n· 许可证改为 CC BY-NC 4.0，仅限非商业使用；Electron、Ruffle 等第三方组件仍遵循各自许可证。\n· 安装包没有代码签名：Windows SmartScreen 与 macOS Gatekeeper 可能提示未知发布者，请核对 SHA-256 后手动放行。",
   "assets": {
     "setup": {
-      "url": "https://github.com/ZSOF-Rui/flash-gamer/releases/download/v0.3.3/FlashGamer-0.3.3-setup.exe",
-      "size": 136394562,
-      "sha256": "53e3a3a2067f30a278b847b46d422af28b423192c11cdad3f67c645093418f78"
+      "url": "https://github.com/ZSOF-Rui/flash-gamer/releases/download/v0.4.0/FlashGamer-0.4.0-win-x64-setup.exe",
+      "size": 128035157,
+      "sha256": "f3d9b5ff8c762bc3a38054d5b37391f7c9187b7b769eb2a1c20ace7bb7f3b6f4"
     },
     "portable": {
-      "url": "https://github.com/ZSOF-Rui/flash-gamer/releases/download/v0.3.3/FlashGamer-0.3.3-portable.zip",
-      "size": 174650223,
-      "sha256": "8650076243b2e1fde22547a05188d08589f04cf31ba77be486c963a043c88ffb"
+      "url": "https://github.com/ZSOF-Rui/flash-gamer/releases/download/v0.4.0/FlashGamer-0.4.0-win-x64.zip",
+      "size": 166564875,
+      "sha256": "1da47e310417bf4e5ac4b07e949d3e77dc4aac9a6cd80d20e3a5d33763f4ca90"
     }
   }
 }
