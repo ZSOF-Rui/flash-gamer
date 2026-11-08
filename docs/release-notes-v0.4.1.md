@@ -1,0 +1,7 @@
+# Flash Gamer v0.4.1
+
+- 修复在线型 Flash 游戏（造梦西游等）卡在“加载出错”：4399 的在线数据接口本身已返回 CORS 头，程序不再重复追加 `Access-Control-Allow-Origin`，避免浏览器把多值头判为非法而拦截存档/登录请求；本地代理转发同样原样保留上游 CORS 与凭证。
+- 解析游戏页时收集全部 `embed` / `object` 候选并跳过 `objtest.swf` 等 1×1 探针，优先选中真正的游戏本体，减少“解析出来是广告占位壳”的情况。
+- 官网与软件更新源全面迁至 GitHub Pages：下线 Qoder Sites 镜像，更新器默认源改为 `flash.828696.xyz`（自定义域名）与 `zsof-rui.github.io/flash-gamer`（兜底）。官网仍由 GitHub Actions 自动构建部署。
+- 兼容范围说明：依赖在线登录/存档的游戏现在能在“网页浏览”里正常加载并同步平台数据；但重型模块化 AS3 网游（如造梦西游完整玩法）仍受 Ruffle 的 ApplicationDomain 实现限制，可能进到标题屏却无法完整进入玩法，这部分需要等 Ruffle 上游改进，不是解析失败。
+- 四个平台（Windows 32/64 位、macOS Intel/Apple 芯片）构建、按平台自动更新与 SHA-256 校验保持不变；安装包仍未签名，请核对校验值后手动放行。

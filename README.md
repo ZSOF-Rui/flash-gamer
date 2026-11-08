@@ -9,14 +9,14 @@ Flash 小游戏离线馆。把 Flash 游戏页面粘贴进来，取出游戏本�
 ![Flash Gamer 实际运行：左侧本地游戏库，右侧正在播放的游戏](docs/FlashGamer-v0.4.0-main.png)
 
 - 官网：<https://flash.828696.xyz/>
-- 官网镜像：<https://flash-gamer-ch09cuq83vg.qoder.website/>
 - 下载：<https://github.com/ZSOF-Rui/flash-gamer/releases/latest>
 
 ## 版本
 
 | 版本 | 位置 | 内容 |
 | --- | --- | --- |
-| v0.4.0 | `main` 分支、GitHub Release | 四平台构建、自定义下载目录、按平台更新；Windows 32/64 位 + macOS Intel/ARM |
+| v0.4.1 | `main` 分支、GitHub Release | 在线型游戏 CORS 兼容修复、解析跳过探针 SWF；官网与更新源迁至 GitHub Pages |
+| v0.4.0 | 历史版本 | 四平台构建、自定义下载目录、按平台更新；Windows 32/64 位 + macOS Intel/ARM |
 | v0.3.3 | 历史版本 | 停止运行、圆角应用图标；NSIS 安装程序 + 免安装 zip |
 | v0.3.2 | 历史版本 | 网页内 Flash 播放 + 双源软件更新；NSIS 安装程序 + 免安装 zip |
 | v0.3.1 | 历史版本 | 浏览器 + 登录共享 + 加壳修复；NSIS 安装程序 + 免安装 zip |
@@ -107,7 +107,7 @@ npm run dist       # 等同 dist:win
 
 ```bash
 npx electron-builder --win nsis zip --x64 --ia32 \
-  --config.directories.output=release/build-0.4.0-dir
+  --config.directories.output=release/build-0.4.1-dir
 ```
 
 ### 自动构建
@@ -127,16 +127,15 @@ npx electron-builder --win nsis zip --x64 --ia32 \
 
 更新清单按平台分成四份：`site/updates/win-x64.json`、`win-ia32.json`、`mac-x64.json`、`mac-arm64.json`，随站点一起发布。软件根据当前系统和 CPU 架构选择对应清单。每份清单默认同时检查：
 
-1. `https://flash-gamer-ch09cuq83vg.qoder.website/updates/<channel>.json`（Qoder Sites）
-2. `https://flash.828696.xyz/updates/<channel>.json`（GitHub Pages 自定义域名）
-3. `https://zsof-rui.github.io/flash-gamer/updates/<channel>.json`（GitHub Pages 默认域名，兜底）
+1. `https://flash.828696.xyz/updates/<channel>.json`（GitHub Pages 自定义域名）
+2. `https://zsof-rui.github.io/flash-gamer/updates/<channel>.json`（GitHub Pages 默认域名，兜底）
 
 清单格式（Windows 用 `setup` / `portable`，macOS 用 `dmg` / `zip`）：
 
 ```json
 {
-  "version": "0.4.0",
-  "publishedAt": "2026-11-05",
+  "version": "0.4.1",
+  "publishedAt": "2026-11-08",
   "notes": "更新说明，可写多行",
   "assets": {
     "setup": { "url": "...setup.exe", "size": 136394562, "sha256": "..." },

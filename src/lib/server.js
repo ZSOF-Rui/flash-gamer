@@ -188,6 +188,26 @@ async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTempla
     'Cross-Origin-Resource-Policy': 'cross-origin'
   };
 
+  // 在线数据接口（save.api 等）自带 ACAO + Allow-Credentials，代理转发时原样保留；
+  // 若换成 * 会让带 Cookie 的存档请求被浏览器拦截。上游没给 CORS 时才退回宽松头。
+  const upstreamCors = (upstream) => {
+    const h = upstream.headers;
+    const acao = h.get('access-control-allow-origin');
+    if (!acao) return CORS;
+    const out = {
+      'Access-Control-Allow-Origin': acao,
+      'Access-Control-Allow-Headers': h.get('access-control-allow-headers') || '*',
+      'Access-Control-Allow-Methods': h.get('access-control-allow-methods') || 'GET, HEAD, POST, OPTIONS',
+      'Access-Control-Allow-Private-Network': 'true',
+      'Cross-Origin-Resource-Policy': 'cross-origin'
+    };
+    const acac = h.get('access-control-allow-credentials');
+    if (acac) out['Access-Control-Allow-Credentials'] = acac;
+    const eh = h.get('access-control-expose-headers');
+    if (eh) out['Access-Control-Expose-Headers'] = eh;
+    return out;
+  };
+
   const server = http.createServer(async (req, res) => {
     try {
       await route(req, res);
@@ -278,7 +298,7 @@ async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTempla
         let meta = {};
         try { meta = JSON.parse(fs.readFileSync(metaFile, 'utf8')); } catch {}
         res.setHeader('X-Ap-Cache', 'HIT');
-        return serveFile(req, res, bin, meta.contentType || 'application/octet-stream', CORS);
+        return serveFile(req, res, bin, meta.contentType || 'application/octet-stream', meta.cors || CORS);
       }
     }
 
@@ -298,7 +318,7 @@ async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTempla
           signal: AbortSignal.timeout(45000)
         });
         const buf = Buffer.from(await upstream.arrayBuffer());
-        return serveBuffer(req, res, buf, upstream.headers.get('content-type') || 'application/octet-stream', CORS);
+        return serveBuffer(req, res, buf, upstream.headers.get('content-type') || 'application/octet-stream', upstreamCors(upstream));
       } catch (e) {
         return send(res, 502, `proxy error: ${e.message}`, 'text/plain; charset=utf-8', CORS);
       }
@@ -318,14 +338,15 @@ async function createServer({ dataDir, lib, rendererDir, vendorDir, playerTempla
 
     const buf = Buffer.from(await upstream.arrayBuffer());
     const type = upstream.headers.get('content-type') || 'application/octet-stream';
+    const cors = upstreamCors(upstream);
     if (bin && upstream.ok && buf.length < 200 * 1024 * 1024) {
       try {
         fs.writeFileSync(bin, buf);
-        fs.writeFileSync(metaFile, JSON.stringify({ url: target.href, contentType: type, size: buf.length, at: Date.now() }));
+        fs.writeFileSync(metaFile, JSON.stringify({ url: target.href, contentType: type, size: buf.length, at: Date.now(), cors }));
       } catch {}
     }
     res.setHeader('X-Ap-Cache', item && upstream.ok ? 'MISS' : 'BYPASS');
-    return serveBuffer(req, res, buf, type, CORS);
+    return serveBuffer(req, res, buf, type, cors);
   }
 
   async function route(req, res) {

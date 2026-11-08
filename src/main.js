@@ -1089,10 +1089,22 @@ async function smoke() {
           })()`);
         }
         const xySpec = process.env.AP_SMOKE_FLASH_CLICK_XY;
-        const points = (xySpec === undefined ? '560,450;560,690;900,730' : xySpec)
-          .split(';')
-          .map((p) => p.split(',').map(Number))
-          .filter((p) => p.length === 2 && p.every(Number.isFinite));
+        let points;
+        if (process.env.AP_SMOKE_FLASH_CLICK_IFRAME) {
+          // 游戏渲染在跨域 iframe 的 Ruffle 画布里，DOM 取不到按钮；按 iframe 矩形比例定位
+          const [fx, fy] = process.env.AP_SMOKE_FLASH_CLICK_IFRAME.split(',').map(Number);
+          const rect = await guest.executeJavaScript(`(() => {
+            const ifs = [...document.querySelectorAll('iframe')].map((f) => { const r = f.getBoundingClientRect(); return { src: f.src, x: r.x, y: r.y, w: r.width, h: r.height }; }).filter((r) => r.w > 200 && r.h > 200);
+            return ifs.find((r) => /sda\\.4399\\.com|4399swf/.test(r.src)) || ifs.sort((a, b) => b.w * b.h - a.w * a.h)[0] || null;
+          })()`);
+          result.clickIframeRect = rect;
+          points = rect ? [[Math.round(rect.x + fx * rect.w), Math.round(rect.y + fy * rect.h)]] : [];
+        } else {
+          points = (xySpec === undefined ? '560,450;560,690;900,730' : xySpec)
+            .split(';')
+            .map((p) => p.split(',').map(Number))
+            .filter((p) => p.length === 2 && p.every(Number.isFinite));
+        }
         for (const [x, y] of points) {
           if (process.env.AP_SMOKE_FLASH_CDP === '1') {
             await guest.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
@@ -1242,11 +1254,18 @@ if (!gotLock) {
       callback({ requestHeaders: headers });
     });
 
-    // Ruffle 用 fetch 取跨域素材，HTTPS 请求不经过本地代理，需要补 CORS 头
+    // Ruffle 用 fetch 取跨域素材，HTTPS 请求不经过本地代理，需要补 CORS 头。
+    // 但 4399 的在线数据接口（save.api/stat.api 等）自己已返回 Access-Control-Allow-Origin
+    // 并带 Allow-Credentials，再叠加一个 * 会变成 "https://sda.4399.com, *" 被浏览器判为
+    // 非法多值而拦截，造梦西游等在线游戏因此卡在“加载出错”。上游已给 CORS 时原样保留。
     session.defaultSession.webRequest.onHeadersReceived({ urls: ['*://*/*'] }, (details, callback) => {
       const headers = { ...(details.responseHeaders || {}) };
       const webPage = isPlayerContext(details) || isBrowserGuestContext(details);
-      if (!/^http:\/\/(127\.0\.0\.1|localhost)/i.test(details.url) && webPage) {
+      const hasACAO = Object.keys(headers).some((k) => k.toLowerCase() === 'access-control-allow-origin');
+      if (!/^http:\/\/(127\.0\.0\.1|localhost)/i.test(details.url) && webPage && !hasACAO) {
+        for (const k of Object.keys(headers)) {
+          if (/^access-control-allow-(headers|methods|private-network)$/i.test(k)) delete headers[k];
+        }
         headers['Access-Control-Allow-Origin'] = ['*'];
         headers['Access-Control-Allow-Headers'] = ['*'];
         headers['Access-Control-Allow-Methods'] = ['GET, POST, OPTIONS'];

@@ -1,6 +1,6 @@
 {
   "name": "flash-gamer",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": false,
   "license": "CC-BY-NC-4.0",
   "description": "Flash Gamer：Flash 小游戏离线馆，提取 SWF、本地运行、无网页广告",

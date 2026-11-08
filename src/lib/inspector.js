@@ -212,8 +212,19 @@ async function inspectPage({ pageUrl, tmpDir, onProgress = () => {}, timeoutMs =
   try {
     hints = await win.webContents.executeJavaScript(`(() => {
       const abs = (u) => { try { return u ? new URL(u, location.href).href : null; } catch { return u || null; } };
-      const embed = document.querySelector('embed');
-      const movie = document.querySelector('object param[name="movie"]');
+      // 4399 页面常先放一个 1x1 的 objtest.swf 探测 Flash，真正的游戏 embed 在其后；
+      // 只读第一个 embed 会把探测文件当成游戏。这里收集全部并跳过探测文件。
+      const isProbe = (u) => /objtest|checkflash|flashdetect/i.test(u || '');
+      const embeds = [...document.querySelectorAll('embed')]
+        .map((e) => ({ src: abs(e.getAttribute('src')), fv: e.getAttribute('flashvars') }))
+        .filter((x) => x.src);
+      const movies = [...document.querySelectorAll('object param[name="movie"]')]
+        .map((p) => ({ src: abs(p.getAttribute('value')), fv: (p.parentElement && p.parentElement.querySelector('param[name="FlashVars"]') && p.parentElement.querySelector('param[name="FlashVars"]').getAttribute('value')) || null }))
+        .filter((x) => x.src);
+      const goodEmbeds = embeds.filter((x) => !isProbe(x.src));
+      const goodMovies = movies.filter((x) => !isProbe(x.src));
+      const embed = goodEmbeds[0] || embeds[0] || null;
+      const movie = goodMovies[0] || movies[0] || null;
       const og = document.querySelector('meta[property="og:image"]');
       const html = document.documentElement.outerHTML;
       let htmlPath = null;
@@ -235,9 +246,11 @@ async function inspectPage({ pageUrl, tmpDir, onProgress = () => {}, timeoutMs =
         width: window._w || window._gameW || null,
         height: window._h || window._gameH || null,
         cover: (og && og.getAttribute('content')) || window._strGamePic || null,
-        embedSrc: embed ? abs(embed.getAttribute('src')) : null,
-        objectMovie: movie ? abs(movie.getAttribute('value')) : null,
-        flashvars: (embed && embed.getAttribute('flashvars')) || (movie && movie.parentElement && movie.parentElement.querySelector('param[name="FlashVars"]')?.getAttribute('value')) || null,
+        embedSrc: embed ? embed.src : null,
+        objectMovie: movie ? movie.src : null,
+        embedSrcs: goodEmbeds.map((x) => x.src),
+        objectMovies: goodMovies.map((x) => x.src),
+        flashvars: (embed && embed.fv) || (movie && movie.fv) || null,
         swfUrls,
         hasH5: !!document.querySelector('script[src*="h5"], iframe[src*="h5"]')
       };
@@ -254,10 +267,13 @@ async function inspectPage({ pageUrl, tmpDir, onProgress = () => {}, timeoutMs =
     if (!c.url || seen.has(c.url)) return;
     if (!/^https?:/i.test(c.url)) return;
     if (isAdSwf(c.url)) return;
+    if (/objtest|checkflash|flashdetect/i.test(c.url)) return;
     seen.add(c.url);
     downloads.push(c);
   };
 
+  for (const u of hints.embedSrcs || []) pushCandidate({ url: u, via: 'embed', referer: pageUrl, cookie: observedList[0]?.cookie || '' });
+  for (const u of hints.objectMovies || []) pushCandidate({ url: u, via: 'object', referer: pageUrl, cookie: observedList[0]?.cookie || '' });
   if (hints.embedSrc) pushCandidate({ url: hints.embedSrc, via: 'embed', referer: pageUrl, cookie: observedList[0]?.cookie || '' });
   if (hints.objectMovie) pushCandidate({ url: hints.objectMovie, via: 'object', referer: pageUrl, cookie: observedList[0]?.cookie || '' });
 

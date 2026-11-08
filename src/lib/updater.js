@@ -6,7 +6,6 @@ const { Readable } = require('stream');
 const { ensureDir, safeFileName } = require('./util');
 
 const ORIGINS = [
-  'https://flash-gamer-ch09cuq83vg.qoder.website',
   'https://flash.828696.xyz',
   'https://zsof-rui.github.io/flash-gamer'
 ];
