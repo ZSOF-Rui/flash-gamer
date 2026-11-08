@@ -117,7 +117,10 @@ npx electron-builder --win nsis zip --x64 --ia32 \
 1. `windows-latest` 构建 x64 / ia32 的 NSIS 与 zip；
 2. `macos-latest` 构建 x64 / arm64 的 DMG 与 zip；
 3. 汇总全部产物，运行 `scripts/make-update-manifests.js` 生成四个更新清单；
-4. 创建或更新对应标签的 GitHub Release，并把站点（`index.html`、`download.html`、`assets/`、`updates/`）部署到 GitHub Pages。
+4. 创建或更新对应标签的 GitHub Release，并把四个清单提交回 `main`；
+5. 清单有变化时触发 `Deploy site` 工作流，由它把站点部署到 GitHub Pages。
+
+GitHub Pages 以提交 SHA 作为构建版本并据此去重，在 tag 上直接部署不会更新站点，所以站点发布统一走 `main`：推送到 `main` 时由 [`pages.yml`](.github/workflows/pages.yml) 自动部署，发布流程则通过回写清单产生新提交，再触发同一个工作流。
 
 发布流程不在本机编译或上传二进制；需要重跑时，在 Actions 里手动运行 `Build and release` 并填入 tag 即可。
 

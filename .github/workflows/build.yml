@@ -15,8 +15,7 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
+  actions: write
 
 concurrency:
   group: release-${{ inputs.tag || github.ref_name }}
@@ -69,15 +68,9 @@ jobs:
             release/*.zip
 
   release:
-    name: Publish release and site
+    name: Publish release
     needs: [windows, macos]
     runs-on: ubuntu-latest
-    concurrency:
-      group: pages
-      cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -106,10 +99,6 @@ jobs:
             --out site/updates \
             --notes-file "$NOTES" \
             --require-all
-          mkdir -p _site
-          cp site/index.html site/download.html _site/
-          cp -R site/assets _site/assets
-          cp -R site/updates _site/updates
       - uses: actions/upload-artifact@v4
         with:
           name: update-manifests
@@ -136,9 +125,30 @@ jobs:
             done
           done
           gh release edit "$TAG" --title "Flash Gamer $TAG" --notes-file "$NOTES" --latest
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      # Pages 以提交 SHA 作为构建版本并据此去重，tag 上的部署覆盖不了站点，
+      # 因此清单先回写 main，再由 Deploy site 工作流统一部署。
+      - name: Commit update manifests to main
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/manifests"
+          cp site/updates/*.json "$RUNNER_TEMP/manifests/"
+          git fetch --depth=1 origin main
+          git checkout -f -B main FETCH_HEAD
+          cp "$RUNNER_TEMP/manifests/"*.json site/updates/
+          if git diff --quiet -- site/updates; then
+            echo "清单无变化，跳过提交"
+            echo "MANIFESTS_CHANGED=0" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add site/updates
+          git commit -m "更新 ${TAG} 四平台更新清单"
+          git push origin main
+          echo "MANIFESTS_CHANGED=1" >> "$GITHUB_ENV"
+      - name: Trigger site deployment
+        if: env.MANIFESTS_CHANGED == '1'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run pages.yml --ref main

@@ -1,17 +1,17 @@
 {
-  "version": "0.4.0",
-  "publishedAt": "2026-11-05",
-  "notes": "Flash Gamer v0.4.0\n· 新增 Windows 32 位、Windows 64 位、macOS Intel 与 macOS Apple 芯片四个平台构建，源码和 GitHub Actions 构建流程一并公开。\n· Electron 固定在 43.x：官方从 44 起不再提供 Windows 32 位二进制，43.x 是仍覆盖四个目标平台的最后分支。\n· 新增自定义 SWF 下载目录：主界面点「下载目录」即可选择保存位置，可把现有游戏库复制到新目录，重启后生效。\n· 更新器按平台与架构读取对应清单；macOS 使用 DMG / ZIP 更新包。\n· 官网改为四平台下载，并提供各安装包的 SHA-256 校验值。\n· 许可证改为 CC BY-NC 4.0，仅限非商业使用；Electron、Ruffle 等第三方组件仍遵循各自许可证。\n· 安装包没有代码签名：Windows SmartScreen 与 macOS Gatekeeper 可能提示未知发布者，请核对 SHA-256 后手动放行。",
+  "version": "0.4.1",
+  "publishedAt": "2026-11-08",
+  "notes": "Flash Gamer v0.4.1\n· 修复在线型 Flash 游戏（造梦西游等）卡在“加载出错”：4399 的在线数据接口本身已返回 CORS 头，程序不再重复追加 `Access-Control-Allow-Origin`，避免浏览器把多值头判为非法而拦截存档/登录请求；本地代理转发同样原样保留上游 CORS 与凭证。\n· 解析游戏页时收集全部 `embed` / `object` 候选并跳过 `objtest.swf` 等 1×1 探针，优先选中真正的游戏本体，减少“解析出来是广告占位壳”的情况。\n· 官网与软件更新源全面迁至 GitHub Pages：下线 Qoder Sites 镜像，更新器默认源改为 `flash.828696.xyz`（自定义域名）与 `zsof-rui.github.io/flash-gamer`（兜底）。官网仍由 GitHub Actions 自动构建部署。\n· 兼容范围说明：依赖在线登录/存档的游戏现在能在“网页浏览”里正常加载并同步平台数据；但重型模块化 AS3 网游（如造梦西游完整玩法）仍受 Ruffle 的 ApplicationDomain 实现限制，可能进到标题屏却无法完整进入玩法，这部分需要等 Ruffle 上游改进，不是解析失败。\n· 四个平台（Windows 32/64 位、macOS Intel/Apple 芯片）构建、按平台自动更新与 SHA-256 校验保持不变；安装包仍未签名，请核对校验值后手动放行。",
   "assets": {
     "setup": {
-      "url": "https://github.com/ZSOF-Rui/flash-gamer/releases/download/v0.4.0/FlashGamer-0.4.0-win-x64-setup.exe",
-      "size": 128035157,
-      "sha256": "f3d9b5ff8c762bc3a38054d5b37391f7c9187b7b769eb2a1c20ace7bb7f3b6f4"
+      "url": "https://github.com/ZSOF-Rui/flash-gamer/releases/download/v0.4.1/FlashGamer-0.4.1-win-x64-setup.exe",
+      "size": 128036227,
+      "sha256": "b33820ae76a1b2dd9a3fee7da1176055adf6aeef2ba3355360a0758267b5b761"
     },
     "portable": {
-      "url": "https://github.com/ZSOF-Rui/flash-gamer/releases/download/v0.4.0/FlashGamer-0.4.0-win-x64.zip",
-      "size": 166564875,
-      "sha256": "1da47e310417bf4e5ac4b07e949d3e77dc4aac9a6cd80d20e3a5d33763f4ca90"
+      "url": "https://github.com/ZSOF-Rui/flash-gamer/releases/download/v0.4.1/FlashGamer-0.4.1-win-x64.zip",
+      "size": 166566109,
+      "sha256": "2d05a62ac64958cb62f456ea316b24491edbf291b3a1f0d4bc3e244b457d56c0"
     }
   }
 }
