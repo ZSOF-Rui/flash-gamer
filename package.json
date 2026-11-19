@@ -29,7 +29,7 @@
     "@ruffle-rs/ruffle": "0.8.0-nightly.2026.10.29"
   },
   "devDependencies": {
-    "electron": "^43.8.7",
+    "electron": "^43.8.10",
     "electron-builder": "^26.18.0"
   },
   "build": {
